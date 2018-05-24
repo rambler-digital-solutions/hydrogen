@@ -391,6 +391,6 @@ foreach ($collection as ['a' => $a]) {
 
 --------------------
 
-Beethooven approves.
+Beethoven approves.
 
 ![https://habrastorage.org/webt/lf/hw/dn/lfhwdnvjxlt9vrsbrd_ajpitubc.png](https://habrastorage.org/webt/lf/hw/dn/lfhwdnvjxlt9vrsbrd_ajpitubc.png)
