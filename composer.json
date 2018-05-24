@@ -1,0 +1,51 @@
+{
+    "name": "rds/hydrogen",
+    "type": "library",
+    "license": "MIT",
+    "description": "More faster and convenient Doctrine ORM abstraction layer",
+    "keywords": [
+        "collections",
+        "repository",
+        "doctrine",
+        "orm",
+        "optimisation",
+        "relations",
+        "abstraction"
+    ],
+    "support": {
+        "issues": "https://github.com/rambler-digital-solutions/hydrogen/issues",
+        "source": "https://github.com/rambler-digital-solutions/hydrogen"
+    },
+    "authors": [
+        {
+            "name": "Kirill Nesmeyanov",
+            "email": "nesk@xakep.ru"
+        }
+    ],
+    "require": {
+        "php": ">=7.1",
+        "doctrine/orm": "~2.5",
+        "illuminate/support": "~5.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "RDS\\Hydrogen\\": "src/"
+        },
+        "files": [
+            "src/helpers.php"
+        ]
+    },
+    "require-dev": {
+        "phpunit/phpunit": "~6.1"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "RDS\\Hydrogen\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
