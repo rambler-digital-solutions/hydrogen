@@ -3,9 +3,12 @@
 </p>
 
 <p align="center">
+    <a href="https://travis-ci.org/rambler-digital-solutions/hydrogen"><img src="https://travis-ci.org/rambler-digital-solutions/hydrogen.svg?branch=master" alt="Travis CI" /></a>
+    <a href="https://scrutinizer-ci.com/g/rambler-digital-solutions/hydrogen/?branch=master"><img src="https://scrutinizer-ci.com/g/rambler-digital-solutions/hydrogen/badges/coverage.png?b=master" alt="Code coverage" /></a>
+    <a href="https://scrutinizer-ci.com/g/rambler-digital-solutions/hydrogen/?branch=master"><img src="https://scrutinizer-ci.com/g/rambler-digital-solutions/hydrogen/badges/quality-score.png?b=master" alt="Scrutinizer CI" /></a>
     <a href="https://packagist.org/packages/rds/hydrogen"><img src="https://poser.pugx.org/rds/hydrogen/version" alt="Latest Stable Version"></a>
     <a href="https://packagist.org/packages/rds/hydrogen"><img src="https://poser.pugx.org/rds/hydrogen/v/unstable" alt="Latest Unstable Version"></a>
-    <a href="https://raw.githubusercontent.com/rambler-digital-solutions/hydrogen/master/LICENSE"><img src="https://poser.pugx.org/rds/hydrogen/license" alt="License MIT"></a>
+    <a href="https://raw.githubusercontent.com/rambler-digital-solutions/hydrogen/master/LICENSE.md"><img src="https://poser.pugx.org/rds/hydrogen/license" alt="License MIT"></a>
 </p>
 
 ## Introduction
