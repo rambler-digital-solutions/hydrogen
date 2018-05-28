@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen\Repository;
 
-use RDS\Hydrogen\Collection;
 use RDS\Hydrogen\Query;
 
 /**
@@ -50,7 +49,7 @@ interface ObjectRepository extends Selectable
      * @param Query $query
      * @return iterable|object[]
      */
-    public function findBy(Query $query): Collection;
+    public function findBy(Query $query): iterable;
 
     /**
      * @param Query $query

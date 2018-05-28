@@ -45,7 +45,7 @@ abstract class Repository implements ObjectRepository
 
     /**
      * @param Query $query
-     * @return Selectable
+     * @return Selectable|Query|$this
      */
     public function scope(Query $query): Selectable
     {

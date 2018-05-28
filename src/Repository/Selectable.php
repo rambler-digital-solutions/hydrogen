@@ -13,7 +13,6 @@ use RDS\Hydrogen\Query;
 
 /**
  * @property-read Query|$this|Repository $query
- * @property-read Query|$this|Repository $clearQuery
  */
 interface Selectable
 {
@@ -25,7 +24,7 @@ interface Selectable
 
     /**
      * @param Query $query
-     * @return Selectable
+     * @return Selectable|Query|$this
      */
     public function scope(Query $query): Selectable;
 }

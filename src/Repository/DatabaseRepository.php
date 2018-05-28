@@ -83,9 +83,9 @@ abstract class DatabaseRepository extends Repository
      * @param Query $query
      * @return Collection
      */
-    public function findBy(Query $query): Collection
+    public function findBy(Query $query): iterable
     {
-        return Collection::wrap($this->getProcessor()->get($query));
+        return $this->getProcessor()->get($query);
     }
 
     /**
