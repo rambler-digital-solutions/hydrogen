@@ -127,11 +127,18 @@ class DatabaseProcessor implements ProcessorInterface
      */
     public function apply(QueryBuilder $builder, Query $query, string $alias): QueryBuilder
     {
-        //
-        // Apply criteria
-        //
+        /** @var DatabaseCriterionProcessor[] $criteria */
+        $criteria = [];
+
         foreach ($query->getCriteria() as $criterion) {
-            $applicator = $this->criterion($criterion, $alias);
+            $identifier = \get_class($criterion);
+
+            if (! \array_key_exists($identifier, $criteria)) {
+                $criteria[$identifier] = $this->criterion($criterion, $alias);
+            }
+
+            /** @var DatabaseCriterionProcessor $applicator */
+            $applicator = $criteria[$identifier];
 
             $builder = $applicator->apply($builder, $criterion);
 

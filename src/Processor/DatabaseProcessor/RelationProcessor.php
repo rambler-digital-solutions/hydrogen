@@ -24,6 +24,11 @@ class RelationProcessor extends CriterionProcessor
     private static $relationId = 0;
 
     /**
+     * @var array|string[]
+     */
+    private $relations = [];
+
+    /**
      * @param QueryBuilder $builder
      * @param CriterionInterface|Relation $with
      * @return QueryBuilder
@@ -33,10 +38,14 @@ class RelationProcessor extends CriterionProcessor
         $alias = $this->alias;
 
         foreach ($with->getRelation()->split() as $relation) {
-            $childAlias = $this->createAlias($relation->getName());
+            $parent     = $relation->withAlias($alias);
+            $exists     = $this->hasAlias($parent);
+            $childAlias = $this->fetchAlias($parent, $relation->getName());
 
-            $builder->leftJoin($relation->withAlias($alias), $childAlias);
-            $builder->addSelect($childAlias);
+            if (! $exists) {
+                $builder->leftJoin($parent, $childAlias);
+                $builder->addSelect($childAlias);
+            }
 
             $alias = $childAlias;
         }
@@ -44,6 +53,29 @@ class RelationProcessor extends CriterionProcessor
         $this->processor->apply($builder, $with->getQuery(), $alias);
 
         return $builder;
+    }
+
+    /**
+     * @param string $parent
+     * @return bool
+     */
+    private function hasAlias(string $parent): bool
+    {
+        return \array_key_exists($parent, $this->relations);
+    }
+
+    /**
+     * @param string $parent
+     * @param string $class
+     * @return string
+     */
+    private function fetchAlias(string $parent, string $class): string
+    {
+        if (! $this->hasAlias($parent)) {
+            $this->relations[$parent] = $this->createAlias($class);
+        }
+
+        return $this->relations[$parent];
     }
 
     /**
