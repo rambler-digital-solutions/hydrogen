@@ -36,17 +36,30 @@ class Where extends Criterion
      * Where constructor.
      * @param string $field
      * @param string $operator
-     * @param $value
+     * @param mixed $value
      * @param bool $and
      */
     public function __construct(string $field, string $operator, $value, bool $and = true)
     {
         parent::__construct($field);
 
-        $this->operator = new Operator($operator, $value);
-        $this->value = $value;
+        $this->value = $this->optimize($value);
+        $this->operator = new Operator($operator, $this->value);
 
         $this->and = $and;
+    }
+
+    /**
+     * @param mixed $value
+     * @return mixed
+     */
+    private function optimize($value)
+    {
+        if (\is_array($value) && \count($value) === 1) {
+            return \array_first($value);
+        }
+
+        return $value;
     }
 
     /**
