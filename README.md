@@ -244,7 +244,7 @@ of data sources have been added.
 ### DatabaseRepository
 
 ```php
-use RDS\Hydrogen\DatabaseRepository;
+use RDS\Hydrogen\Repository\DatabaseRepository;
 
 class Example extends DatabaseRepository {}
 ```
