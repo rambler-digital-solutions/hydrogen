@@ -133,14 +133,15 @@ Query::where('id', 23)
 ### Non-prefixed queries
 
 In some cases, you need to get a custom value that does not apply to the 
-entity itself. In this case, you should use the prefix `this.` in the queries.
+entity itself. In this case, you should use the prefix `:` in the queries.
 
 ```php
 Query::select('RAND() as HIDDEN rnd')
-    ->orderBy('rnd', 'createdAt')
+    ->orderBy(':rnd', 'createdAt')
     ->get();
 /**
  * SELECT entity, RAND() as HIDDEN rnd FROM ... ORDER BY entity.created_at ASC, rnd ASC
+ *                                                       ^^^^^^ alias           ^^^ no alias
  */
 ```
 
