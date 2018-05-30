@@ -12,7 +12,7 @@ namespace RDS\Hydrogen\Criteria\Common;
 /**
  * Class Field
  */
-class Field
+class Field implements FieldInterface
 {
     /**
      * Inherit value delimiter
@@ -20,19 +20,29 @@ class Field
     public const DEEP_DELIMITER = '.';
 
     /**
+     * Prefix using for disable aliasing field
+     */
+    public const NON_ALIASED_PREFIX = ':';
+
+    /**
+     * @var bool
+     */
+    private $hasFunction = false;
+
+    /**
+     * @var bool
+     */
+    private $isAliased = true;
+
+    /**
      * @var string
      */
     private $field;
 
     /**
-     * @var bool|null
+     * @var string
      */
-    private $isComposite;
-
-    /**
-     * @var string|null
-     */
-    private $function;
+    private $wrapper = '%s';
 
     /**
      * Field constructor.
@@ -40,23 +50,46 @@ class Field
      */
     public function __construct(string $field)
     {
-        $this->field       = $field;
-        $this->isComposite = \substr_count($field, self::DEEP_DELIMITER) > 0;
+        \assert(\strlen($field) > 0);
 
-        $this->parseFunction($field);
+        $this->field = $this->extractFieldPrefixLogic(
+            $this->extractFieldFromFunction($field)
+        );
+
     }
 
     /**
      * @param string $field
+     * @return string
      */
-    private function parseFunction(string $field): void
+    private function extractFieldPrefixLogic(string $field): string
     {
-        $isFunction = \substr_count($field, '(') > 0;
+        if (\strpos($field, self::NON_ALIASED_PREFIX) === 0) {
+            $this->isAliased = false;
 
-        if ($isFunction) {
-            [$this->function, $this->field] =
-                \array_filter((array)\preg_split('/[\(\)]/u', $field));
+            return \substr($field, \strlen(self::NON_ALIASED_PREFIX));
         }
+
+        return $field;
+    }
+
+    /**
+     * @param string $field
+     * @return string
+     */
+    private function extractFieldFromFunction(string $field): string
+    {
+        $pattern = '/\(([\w|\.|\:]+)\)/u';
+        \preg_match($pattern, $field, $chunks);
+
+        if (\count($chunks)) {
+            $this->wrapper = \str_replace($chunks[1], '%s', $chunks[0]);
+            $this->hasFunction = true;
+
+            return $chunks[1];
+        }
+
+        return $field;
     }
 
     /**
@@ -64,7 +97,7 @@ class Field
      */
     public function isComposite(): bool
     {
-        return $this->isComposite;
+        return \substr_count($this->field, self::DEEP_DELIMITER) > 0;
     }
 
     /**
@@ -73,40 +106,11 @@ class Field
      */
     public function withAlias(string $alias): string
     {
-        $field = $this->fieldWithAlias($alias);
+        $field = $this->isAliased
+            ? \implode(self::DEEP_DELIMITER, [$alias, $this->field])
+            : $this->field;
 
-        if ($this->isFunction()) {
-            return \sprintf('%s(%s)', $this->function, $field);
-        }
-
-        return $field;
-    }
-
-    /**
-     * @param string $alias
-     * @return string
-     */
-    public function fieldWithAlias(string $alias): string
-    {
-        $field = $this->field;
-
-        if ($this->isComposite) {
-            $parts = $this->toArray();
-
-            \array_shift($parts);
-
-            $field = \implode(self::DEEP_DELIMITER, $parts);
-        }
-
-        return \implode(self::DEEP_DELIMITER, [$alias, $field]);
-    }
-
-    /**
-     * @return array
-     */
-    public function toArray(): array
-    {
-        return \explode(self::DEEP_DELIMITER, $this->field);
+        return \sprintf($this->wrapper, $field);
     }
 
     /**
@@ -126,11 +130,19 @@ class Field
     }
 
     /**
+     * @return bool
+     */
+    public function isPrefixed(): bool
+    {
+        return $this->isAliased;
+    }
+
+    /**
      * @return string
      */
     public function getName(): string
     {
-        return \array_last($this->toArray());
+        return $this->field;
     }
 
     /**
@@ -138,23 +150,15 @@ class Field
      */
     public function isFunction(): bool
     {
-        return $this->function !== null;
+        return $this->hasFunction;
     }
 
     /**
-     * @return null|string
+     * @return iterable|Field[]
      */
-    public function getFunction(): ?string
+    public function split(): iterable
     {
-        return $this->function;
-    }
-
-    /**
-     * @return \Traversable|Field[]
-     */
-    public function split(): \Traversable
-    {
-        foreach ($this->toArray() as $chunk) {
+        foreach (\explode(self::DEEP_DELIMITER, $this->field) as $chunk) {
             yield new static($chunk);
         }
     }
