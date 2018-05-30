@@ -20,6 +20,7 @@ use RDS\Hydrogen\Criteria\Group;
 use RDS\Hydrogen\Criteria\GroupBy;
 use RDS\Hydrogen\Criteria\Limit;
 use RDS\Hydrogen\Criteria\Offset;
+use RDS\Hydrogen\Criteria\OrderBy;
 use RDS\Hydrogen\Criteria\Relation;
 use RDS\Hydrogen\Criteria\Selection;
 use RDS\Hydrogen\Criteria\Where;
@@ -28,6 +29,7 @@ use RDS\Hydrogen\Processor\DatabaseProcessor\GroupByProcessor;
 use RDS\Hydrogen\Processor\DatabaseProcessor\GroupProcessor;
 use RDS\Hydrogen\Processor\DatabaseProcessor\LimitProcessor;
 use RDS\Hydrogen\Processor\DatabaseProcessor\OffsetProcessor;
+use RDS\Hydrogen\Processor\DatabaseProcessor\OrderByProcessor;
 use RDS\Hydrogen\Processor\DatabaseProcessor\RelationProcessor;
 use RDS\Hydrogen\Processor\DatabaseProcessor\SelectProcessor;
 use RDS\Hydrogen\Processor\DatabaseProcessor\WhereProcessor;
@@ -46,6 +48,7 @@ class DatabaseProcessor implements ProcessorInterface
         Limit::class     => LimitProcessor::class,
         Offset::class    => OffsetProcessor::class,
         GroupBy::class   => GroupByProcessor::class,
+        OrderBy::class   => OrderByProcessor::class,
         Selection::class => SelectProcessor::class,
         Group::class     => GroupProcessor::class,
         Relation::class  => RelationProcessor::class,
