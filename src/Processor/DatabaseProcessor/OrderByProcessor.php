@@ -25,6 +25,6 @@ class OrderByProcessor extends CriterionProcessor
      */
     public function apply(QueryBuilder $builder, CriterionInterface $orderBy): QueryBuilder
     {
-        return $builder->orderBy($this->field($orderBy->getField()));
+        return $builder->orderBy($this->field($orderBy->getField()), $orderBy->getDirection());
     }
 }
