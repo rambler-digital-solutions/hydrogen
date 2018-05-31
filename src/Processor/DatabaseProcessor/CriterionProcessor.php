@@ -83,9 +83,9 @@ abstract class CriterionProcessor implements DatabaseCriterionProcessor
      */
     protected function alias(Field $field = null): string
     {
-        $prefix = $field ? str_replace('.', '_', $field->getName()) : 'value';
+        $prefix = $field ? $field->getName() : 'value';
 
-        return $prefix . self::$parameterId++;
+        return \snake_case($prefix . self::$parameterId++);
     }
 
     /**
