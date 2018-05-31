@@ -200,7 +200,6 @@ class DatabaseProcessor implements ProcessorInterface
     {
         try {
             $builder = $this->toBuilder($query);
-            $builder->setMaxResults(1);
 
             return $builder->getQuery()->getOneOrNullResult();
         } catch (\InvalidArgumentException $e) {
