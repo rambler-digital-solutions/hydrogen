@@ -85,7 +85,7 @@ abstract class CriterionProcessor implements DatabaseCriterionProcessor
     {
         $prefix = $field ? $field->getName() : 'value';
 
-        return \snake_case($prefix . self::$parameterId++);
+        return \preg_replace('/\W+/u', '_', $prefix . self::$parameterId++);
     }
 
     /**
