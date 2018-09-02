@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace RDS\Hydrogen\Query;
 
 use RDS\Hydrogen\Criteria\Group;
+use RDS\Hydrogen\Criteria\Having;
 use RDS\Hydrogen\Criteria\Where;
 use RDS\Hydrogen\Query;
 use RDS\Hydrogen\Query\WhereProvider\WhereBetweenProvider;
@@ -103,7 +104,6 @@ trait WhereProvider
 
         throw new \InvalidArgumentException($error);
     }
-
 
     /**
      * @return bool

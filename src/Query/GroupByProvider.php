@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen\Query;
 
+use RDS\Hydrogen\Criteria\Group;
 use RDS\Hydrogen\Criteria\GroupBy;
+use RDS\Hydrogen\Criteria\Having;
 use RDS\Hydrogen\Query;
 
 /**
@@ -29,5 +31,41 @@ trait GroupByProvider
         }
 
         return $this;
+    }
+
+    /**
+     * @param string|\Closure $field
+     * @param $valueOrOperator
+     * @param null $value
+     * @return Query|$this|self
+     */
+    public function orHaving($field, $valueOrOperator = null, $value = null): self
+    {
+        return $this->or->having($field, $valueOrOperator, $value);
+    }
+
+    /**
+     * @param string|\Closure $field
+     * @param $valueOrOperator
+     * @param null $value
+     * @return Query|$this|self
+     */
+    public function having($field, $valueOrOperator = null, $value = null): self
+    {
+        if (\is_string($field)) {
+            [$operator, $value] = Having::completeMissingParameters($valueOrOperator, $value);
+
+            return $this->add(new Having($field, $operator, $value, $this->mode()));
+        }
+
+        if ($field instanceof \Closure) {
+            return $this->add(new Group($this, $field, $this->mode()));
+        }
+
+        $error = \vsprintf('Selection set should be a type of string or Closure, but %s given', [
+            \studly_case(\gettype($field)),
+        ]);
+
+        throw new \InvalidArgumentException($error);
     }
 }

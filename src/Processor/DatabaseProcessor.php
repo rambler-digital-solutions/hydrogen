@@ -25,6 +25,7 @@ class DatabaseProcessor extends Processor
     protected const CRITERIA_MAPPINGS = [
         Criteria\Group::class     => DatabaseProcessor\GroupBuilder::class,
         Criteria\GroupBy::class   => DatabaseProcessor\GroupByBuilder::class,
+        Criteria\Having::class    => DatabaseProcessor\HavingBuilder::class,
         Criteria\Limit::class     => DatabaseProcessor\LimitBuilder::class,
         Criteria\Offset::class    => DatabaseProcessor\OffsetBuilder::class,
         Criteria\OrderBy::class   => DatabaseProcessor\OrderByBuilder::class,
@@ -86,31 +87,17 @@ class DatabaseProcessor extends Processor
     }
 
     /**
-     * A set of coroutine operations valid for the current DatabaseProcessor.
+     * Creates a new QueryBuilder and applies all necessary operations.
+     * Returns a set of pending operations (Deferred) and QueryBuilder.
      *
-     * @param QueryBuilder $builder
-     * @return \Closure
+     * @param Query $query
+     * @return \Generator|\Closure[]|QueryBuilder
      */
-    private function applicator(QueryBuilder $builder): \Closure
+    protected function toBuilder(Query $query): \Generator
     {
-        return function ($response) use ($builder) {
-            // Send the context (the builder) in case the
-            // answer contains an empty value.
-            if ($response === null) {
-                return $builder;
-            }
+        yield from $generator = $this->apply($this->em->createQueryBuilder(), $query);
 
-            // In the case that the response is returned to the Query
-            // instance - we need to fulfill this query and return a response.
-            if ($response instanceof Query) {
-                /** @var DatabaseProcessor $processor */
-                $processor = $response->getRepository()->getProcessor();
-
-                return $processor->getResult($response);
-            }
-
-            return $response;
-        };
+        return $generator->getReturn();
     }
 
     /**
@@ -145,17 +132,31 @@ class DatabaseProcessor extends Processor
     }
 
     /**
-     * Creates a new QueryBuilder and applies all necessary operations.
-     * Returns a set of pending operations (Deferred) and QueryBuilder.
+     * A set of coroutine operations valid for the current DatabaseProcessor.
      *
-     * @param Query $query
-     * @return \Generator|\Closure[]|QueryBuilder
+     * @param QueryBuilder $builder
+     * @return \Closure
      */
-    protected function toBuilder(Query $query): \Generator
+    private function applicator(QueryBuilder $builder): \Closure
     {
-        yield from $generator = $this->apply($this->em->createQueryBuilder(), $query);
+        return function ($response) use ($builder) {
+            // Send the context (the builder) in case the
+            // answer contains an empty value.
+            if ($response === null) {
+                return $builder;
+            }
 
-        return $generator->getReturn();
+            // In the case that the response is returned to the Query
+            // instance - we need to fulfill this query and return a response.
+            if ($response instanceof Query) {
+                /** @var DatabaseProcessor $processor */
+                $processor = $response->getRepository()->getProcessor();
+
+                return $processor->getResult($response);
+            }
+
+            return $response;
+        };
     }
 
     /**

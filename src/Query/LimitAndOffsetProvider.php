@@ -67,8 +67,9 @@ trait LimitAndOffsetProvider
     public function range(int $from, int $to): self
     {
         if ($from > $to) {
-            throw new \InvalidArgumentException('From value must be less than To');
+            throw new \InvalidArgumentException('The "$from" value must be less than $to');
         }
+
         return $this->limit($from)->offset($to - $from);
     }
 }
