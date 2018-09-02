@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace RDS\Hydrogen\Collection;
 
 use Illuminate\Support\Str;
-use RDS\Hydrogen\Collection;
 
 /**
  * Class HigherOrderCollectionProxy

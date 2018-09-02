@@ -9,11 +9,19 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen\Criteria\Common;
 
+use Illuminate\Support\Str;
+use RDS\Hydrogen\Query;
+
 /**
  * Class Field
  */
 class Field implements FieldInterface
 {
+    /**
+     * @var string
+     */
+    private const EXTRACTION_PATTERN = '/^(?:.*?\(([\w\.\:\*]+?)\).*?|([\w\.\:\*]+)).*?$/su';
+
     /**
      * Inherit value delimiter
      */
@@ -25,16 +33,6 @@ class Field implements FieldInterface
     public const NON_ALIASED_PREFIX = ':';
 
     /**
-     * @var bool
-     */
-    private $hasFunction = false;
-
-    /**
-     * @var bool
-     */
-    private $isAliased = true;
-
-    /**
      * @var string
      */
     private $field;
@@ -42,91 +40,49 @@ class Field implements FieldInterface
     /**
      * @var string
      */
-    private $wrapper = '%s';
+    private $wrapper;
+
+    /**
+     * @var string
+     */
+    private $alias;
+
+    /**
+     * @var Query
+     */
+    private $query;
+
+    /**
+     * @var bool
+     */
+    private $prefixed;
 
     /**
      * Field constructor.
-     * @param string $field
+     * @param string $query
      */
-    public function __construct(string $field)
+    public function __construct(string $query)
     {
-        \assert(\strlen($field) > 0);
+        \assert(\strlen(\trim($query)) > 0);
 
-        $this->field = $this->extractFieldPrefixLogic(
-            $this->extractFieldFromFunction($field)
-        );
-
+        [$this->wrapper, $this->field, $this->prefixed] = $this->analyze(\trim($query));
     }
 
     /**
-     * @param string $field
-     * @return string
+     * @param string $query
+     * @return Field|static
      */
-    private function extractFieldPrefixLogic(string $field): string
+    public static function new(string $query): self
     {
-        if (\strpos($field, self::NON_ALIASED_PREFIX) === 0) {
-            $this->isAliased = false;
-
-            return \substr($field, \strlen(self::NON_ALIASED_PREFIX));
-        }
-
-        return $field;
+        return new static($query);
     }
 
     /**
-     * @param string $field
-     * @return string
+     * @return iterable|string[]
      */
-    private function extractFieldFromFunction(string $field): string
+    public function getChunks(): iterable
     {
-        $pattern = '/\(([\w|\.|\:]+)\)/u';
-        \preg_match($pattern, $field, $chunks);
-
-        if (\count($chunks)) {
-            $this->wrapper = \str_replace($chunks[1], '%s', $chunks[0]);
-            $this->hasFunction = true;
-
-            return $chunks[1];
-        }
-
-        return $field;
-    }
-
-    /**
-     * @return bool
-     */
-    public function isComposite(): bool
-    {
-        return \substr_count($this->field, self::DEEP_DELIMITER) > 0;
-    }
-
-    /**
-     * @param string $alias
-     * @return string
-     */
-    public function withAlias(string $alias): string
-    {
-        $field = $this->isAliased
-            ? \implode(self::DEEP_DELIMITER, [$alias, $this->field])
-            : $this->field;
-
-        return \sprintf($this->wrapper, $field);
-    }
-
-    /**
-     * @return string
-     */
-    public function toString(): string
-    {
-        return $this->field;
-    }
-
-    /**
-     * @return string
-     */
-    public function __toString(): string
-    {
-        return $this->field;
+        return \explode(self::DEEP_DELIMITER, $this->field);
     }
 
     /**
@@ -134,7 +90,50 @@ class Field implements FieldInterface
      */
     public function isPrefixed(): bool
     {
-        return $this->isAliased;
+        return $this->prefixed;
+    }
+
+    /**
+     * @param string $query
+     * @return array
+     */
+    private function analyze(string $query): array
+    {
+        $field = null;
+
+        $replacement = function (array $matches) use (&$field) {
+            $field = $matches[1] ?: ($matches[2] ?? null);
+
+            return \str_replace_first($field, '%s', $matches[0]);
+        };
+
+        $wrapper = \preg_replace_callback(self::EXTRACTION_PATTERN, $replacement, $query);
+
+        if ($field === null || $wrapper === null) {
+            $error = \sprintf('Can not extract field name from %s expression', $query);
+            throw new \LogicException($error);
+        }
+
+        return \array_merge([$wrapper], $this->analyzePrefix((string)$field));
+    }
+
+    /**
+     * @param string $field
+     * @return array
+     */
+    private function analyzePrefix(string $field): array
+    {
+        $prefixed = true;
+
+        if ($field === '*') {
+            return [$field, false];
+        }
+
+        if (Str::startsWith($field, self::NON_ALIASED_PREFIX)) {
+            return [\substr($field, 1), false];
+        }
+
+        return [$field, $prefixed];
     }
 
     /**
@@ -142,24 +141,74 @@ class Field implements FieldInterface
      */
     public function getName(): string
     {
+        return \array_first($this->getChunks());
+    }
+
+    /**
+     * @return string
+     */
+    private function getFieldWithPrefix(): string
+    {
+        if ($this->prefixed) {
+            $chunks = \array_filter([$this->getAlias(), $this->field]);
+
+            return \implode(self::DEEP_DELIMITER, $chunks);
+        }
+
         return $this->field;
     }
 
     /**
-     * @return bool
+     * @return string
      */
-    public function isFunction(): bool
+    public function toString(): string
     {
-        return $this->hasFunction;
+        return \sprintf($this->wrapper, $this->getFieldWithPrefix());
     }
 
     /**
-     * @return iterable|Field[]
+     * @return string
      */
-    public function split(): iterable
+    public function __toString(): string
     {
-        foreach (\explode(self::DEEP_DELIMITER, $this->field) as $chunk) {
-            yield new static($chunk);
+        return $this->toString();
+    }
+
+    /**
+     * @return null|string
+     */
+    public function getAlias(): ?string
+    {
+        if ($this->alias) {
+            return $this->alias;
         }
+
+        if ($this->query) {
+            return $this->query->getAlias();
+        }
+
+        return null;
+    }
+
+    /**
+     * @param Query $query
+     * @return Field|$this
+     */
+    public function withQuery(Query $query): self
+    {
+        $this->query = $query;
+
+        return $this;
+    }
+
+    /**
+     * @param string $alias
+     * @return Field
+     */
+    public function withAlias(string $alias): self
+    {
+        $this->alias = $alias;
+
+        return $this;
     }
 }

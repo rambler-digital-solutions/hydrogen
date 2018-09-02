@@ -9,8 +9,8 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen\Criteria;
 
-use RDS\Hydrogen\Criteria\Common\Field;
-use RDS\Hydrogen\Criteria\Common\Operator;
+use Illuminate\Contracts\Support\Arrayable;
+use RDS\Hydrogen\Criteria\Where\Operator;
 
 /**
  * Class Where
@@ -43,31 +43,61 @@ class Where extends Criterion
     {
         parent::__construct($field);
 
-        $this->value = $this->optimize($value);
-        $this->operator = new Operator($operator, $this->value);
-
+        $this->value = $this->normalizeValue($value);
+        $this->operator = $this->normalizeOperator(new Operator($operator), $this->value);
         $this->and = $and;
     }
 
     /**
      * @param mixed $value
-     * @return mixed
+     * @return array|mixed
      */
-    private function optimize($value)
+    private function normalizeValue($value)
     {
-        if (\is_array($value) && \count($value) === 1) {
-            return \array_first($value);
+        switch (true) {
+            case $value instanceof Arrayable:
+                return $value->toArray();
+
+            case $value instanceof \Traversable:
+                return \iterator_to_array($value);
+
+            case \is_object($value) && \method_exists($value, '__toString'):
+                return (string)$value;
         }
 
         return $value;
     }
 
     /**
-     * @return Field
+     * @param Operator $operator
+     * @param mixed $value
+     * @return Operator
      */
-    public function getField(): Field
+    private function normalizeOperator(Operator $operator, $value): Operator
     {
-        return $this->field;
+        if (\is_array($value) && $operator->is(Operator::EQ)) {
+            return $operator->changeTo(Operator::IN);
+        }
+
+        if (\is_array($value) && $operator->is(Operator::NEQ)) {
+            return $operator->changeTo(Operator::NOT_IN);
+        }
+
+        return $operator;
+    }
+
+    /**
+     * @param mixed $operator
+     * @param null $value
+     * @return array
+     */
+    public static function completeMissingParameters($operator, $value = null): array
+    {
+        if ($value === null) {
+            [$value, $operator] = [$operator, Operator::EQ];
+        }
+
+        return [$operator, $value];
     }
 
     /**
@@ -92,19 +122,5 @@ class Where extends Criterion
     public function isAnd(): bool
     {
         return $this->and;
-    }
-
-    /**
-     * @param mixed $valueOrOperator
-     * @param null $value
-     * @return array
-     */
-    public static function completeMissingParameters($valueOrOperator, $value = null): array
-    {
-        if ($value === null) {
-            [$value, $valueOrOperator] = [$valueOrOperator, Operator::EQ];
-        }
-
-        return [$valueOrOperator, $value];
     }
 }

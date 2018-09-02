@@ -1,0 +1,12 @@
+CREATE TABLE users
+(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(255)
+);
+
+CREATE TABLE messages
+(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    content TEXT
+);

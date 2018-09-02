@@ -35,10 +35,18 @@ class Relation extends Criterion
      */
     public function __construct(string $relation, Query $parent, \Closure $inner = null)
     {
+        parent::__construct($relation);
+
         $this->inner = $inner;
         $this->parent = $parent;
+    }
 
-        parent::__construct($relation);
+    /**
+     * @return string
+     */
+    public function getAlias(): string
+    {
+        return $this->parent->getAlias();
     }
 
     /**
@@ -46,7 +54,7 @@ class Relation extends Criterion
      */
     public function getRelation(): Field
     {
-        return $this->field;
+        return $this->getField();
     }
 
     /**
@@ -54,7 +62,7 @@ class Relation extends Criterion
      */
     public function getQuery(): Query
     {
-        $query = $this->parent->sub();
+        $query = $this->parent->create();
 
         if ($this->inner) {
             ($this->inner)($query);

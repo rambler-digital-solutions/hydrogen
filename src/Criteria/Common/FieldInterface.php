@@ -15,9 +15,19 @@ namespace RDS\Hydrogen\Criteria\Common;
 interface FieldInterface
 {
     /**
-     * @return bool
+     * @return string
      */
-    public function isComposite(): bool;
+    public function getName(): string;
+
+    /**
+     * @return string
+     */
+    public function toString(): string;
+
+    /**
+     * @return null|string
+     */
+    public function getAlias(): ?string;
 
     /**
      * @return bool
@@ -25,23 +35,7 @@ interface FieldInterface
     public function isPrefixed(): bool;
 
     /**
-     * @return string
-     */
-    public function getName(): string;
-
-    /**
-     * @param string $alias
-     * @return string
-     */
-    public function withAlias(string $alias): string;
-
-    /**
-     * @return bool
-     */
-    public function isFunction(): bool;
-
-    /**
      * @return iterable|string[]
      */
-    public function split(): iterable;
+    public function getChunks(): iterable;
 }

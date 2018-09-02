@@ -11,387 +11,518 @@
     <a href="https://raw.githubusercontent.com/rambler-digital-solutions/hydrogen/master/LICENSE.md"><img src="https://poser.pugx.org/rds/hydrogen/license" alt="License MIT"></a>
 </p>
 
-## Introduction
+> **The documentation is not finished at the moment.**
 
 - [Introduction](#introduction)
-- [Requirements](#requirements)
 - [Installation](#installation)
-- [Queries](#queries)
-    - [Non-prefixed queries](#non-prefixed-queries)
-    - [Eager loading](#eager-loading)
-    - [Relation selection](#relation-selection)
-- [Repositories](#repositories)
-    - Origins
-        - [DatabaseRepository](#databaserepository)
-        - TODO: ~~MemoryRepository~~
-        - TODO: ~~JsonFileRepository~~
-        - TODO: ~~PhpFileRepository~~
-    - [Selections](#selections)
-    - ["In-place" queries](#in-place-queries)
-    - [Scopes](#scopes)
-- [Collections](#collections)
-    - [Higher Order Messaging](#higher-order-messaging)
-    - [Static constructors](#static-constructors)
-    - [Destructuring](#destructuring)
-    
-This package contains a set of frequently used functions of Doctrine ORM 
-that are optimized for more convenient usage.
+    - [Server Requirements](#server-requirements)
+    - [Installing Hydrogen](#installing-hydrogen)
+- [Usage](#usage)
+- [Retrieving Results](#Retrieving Results)
+    - [Retrieving All Entities](#Retrieving All Entities)
+    - [Retrieving A Single Entity](#Retrieving A Single Entity)
+    - [Retrieving A List Of Field Values](#Retrieving A List Of Field Values)
+    - [Aggregates and Scalar Results](#Aggregates and Scalar Results)
+- [Selects](#Selects)
+- [Where Clauses](#Where Clauses)
+    - [Simple Where Clauses](#Simple Where Clauses)
+    - [Or Statements](#Or Statements)
+    - [Additional Where Clauses](#Additional Where Clauses)
+    - [Parameter Grouping](#Parameter Grouping)
 
-## Requirements
+## Introduction
 
-- `PHP >= 7.1`
+Hydrogen provides a beautiful, convenient and simple implementation for 
+working with Doctrine queries. It does not affect the existing code 
+in any way and can be used even in pre-built production applications.
 
 ## Installation
 
-- `composer require rds/hydrogen`
+### Server Requirements
 
-## Queries
+The Hydrogen library has several system requirements. 
+You need to make sure that your server meets the following requirements:
 
-The Query object is created in the format `Query::method()->method()->method()->...` 
-and has a set of the following methods. 
+- PHP >= 7.1.3
+- PDO PHP Extension
+- Mbstring PHP Extension
+- JSON PHP Extension
+- [doctrine/orm >= 2.5](https://packagist.org/packages/doctrine/orm) 
 
-```php
-Query::new()
-    //
-    // Selections
-    //
-    ->select('some', 'any')             // SELECT [entity], [relations], some, any
-    ->select(['some' => 'alias'])       // SELECT [entity], [relations], some AS alias
-    ->select(['count(id)' => 'cnt'])    // SELECT [entity], [relations], COUNT(id) AS cnt
-    ->where('field', 23)                // WHERE field = 23
-    ->where('field', '>', 42)           // WHERE field > 42
-    ->where('field', [1, 2, 3])         // WHERE field IN (1, 2, 3)
-    ->orWhere(function(Query $query) {           // 
-        $query->where('a', 23)->where('b', 42);  // WHERE XXX OR (a = 23 AND b = 42)
-    })                                           // 
-    ->whereIn('field', [1, 2, 3])       // WHERE field IN (1, 2, 3)
-    ->whereNotIn('field', [1, 2, 3])    // WHERE field NOT IN (1, 2, 3)
-    ->whereBetween('field', 1, 2)       // WHERE field BETWEEN 1 AND 2
-    ->whereNotBetween('field', 1, 2)    // WHERE field NOT BETWEEN 1 AND 2
-    ->whereNull('field')                // WHERE field IS NULL
-    ->whereNotNull('field')             // WHERE field IS NOT NULL
-    ->orderBy('field')                  // ORDER BY field ASC
-    ->orderBy('field', false)           // ORDER BY field DESC
-    ->asc('field')                      // ORDER BY field ASC
-    ->desc('field')                     // ORDER BY field DESC
-    ->latest('updatedAt')               // ORDER BY updatedAt DESC
-    ->latest()                          // ORDER BY createdAt DESC
-    ->oldest('updatedAt')               // ORDER BY updatedAt ASC
-    ->oldest()                          // ORDER BY createdAt ASC
-    ->groupBy('field', 'field2')        // GROUP BY field, field2
-    ->limit(10)                         // LIMIT 10
-    ->take(10)                          // LIMIT 10
-    ->skip(10)                          // OFFSET 10
-    ->offset(10)                        // OFFSET 10
-    ->range(100, 150)                   // LIMIT 50 OFFSET 100
-    ->after('field', 150)               // WHERE field > 150 ORDER BY field ASC
-    ->before('field', 150)              // WHERE field < 150 ORDER BY field DESC
-    ->with('friends')                   // Eager loading of "friends"
-    ->with('friends.messages')          // Eager loading of "friends" and "messages" of "friends".
-    ->with([                            // Eager loading of "friends" and "messages" of "friends" WHERE message.sent = true
-        'friends.messages' => function(Query $q) {
-            $q->where('sent', true);
-        }
-    ]);
-    
-    //
-    // Execution
-    //
-    ->get()                             // Find all as array
-    ->collect()                         // Find all as Collection
-    ->first()                           // Select first item
-    ->count()                           // Select count of items
-    
-    //
-    // Configure
-    //
-    ->from($repository)                 // Reference to the repository to which this Query belongs
-    ->scope($anyRepository)             // Add repository scope
+### Installing Hydrogen
+
+Hydrogen utilizes [Composer](https://getcomposer.org/) to manage its dependencies. 
+So, before using Hydrogen, make sure you have Composer installed on your machine.
+
+**Stable**
+
+```bash
+composer require rds/hydrogen
 ```
 
-Another example:
+**Dev**
 
-```php
-Query::where('id', 23)
-    ->or->where('id', '>', 42)
-    ->or->where('id', [1, 3, 5])
-    ->asc('createdAt', 'updatedAt');
-    
-/**
- * Result:
- *
- * SELECT entity FROM ... 
- * WHERE entity.id = 23 OR 
- *       entity.id > 42 OR 
- *       entity.id IN (1, 3, 5) 
- * ORDER BY 
- *      entity.created_at ASC, 
- *      entity.updated_at ASC;
- */
+```bash
+composer require rds/hydrogen dev-master@dev
 ```
 
-### Non-prefixed queries
+## Usage
 
-In some cases, you need to get a custom value that does not apply to the 
-entity itself. In this case, you should use the prefix `:` in the queries.
+Hydrogen interacts with the repositories of the Doctrine. 
+In order to take advantage of additional features - you need to 
+add the main trait to an existing implementation of the repository.
 
 ```php
-Query::select('RAND() as HIDDEN rnd')
-    ->orderBy(':rnd', 'createdAt')
+<?php
+
+use Doctrine\ORM\EntityRepository;
+use RDS\Hydrogen\Hydrogen;
+
+class ExampleRepository extends EntityRepository 
+{
+    use Hydrogen;
+}
+```
+
+After that you get full access to the query builder.
+
+## Retrieving Results
+
+### Retrieving All Entities
+
+You may use the `->query()` method on the Repository to begin a query. 
+This method returns a fluent query builder instance for the given repository, 
+allowing you to chain more constraints onto the query and then finally 
+get the results using the `->get()` method:
+
+```php
+<?php
+
+use RDS\Hydrogen\Hydrogen;
+use Doctrine\ORM\EntityRepository;
+
+class UsersRepository extends EntityRepository 
+{
+    use Hydrogen;
+    
+    public function toArray(): iterable
+    {
+        return $this->query->get();
+    }
+}
+```
+
+The `get()` method returns an `array` containing the results, 
+where each result is an instance of the object (Entity) associated 
+with the specified repository:
+
+```php
+foreach ($users->toArray() as $user) {
+    \var_dump($user);
+}
+```
+
+In addition, you can use the method `collect()` to 
+get a collection that is compatible with ArrayCollection:
+
+```php
+<?php
+
+use RDS\Hydrogen\Hydrogen;
+use Doctrine\ORM\EntityRepository;
+use RDS\Hydrogen\Collection\Collection;
+
+class UsersRepository extends EntityRepository 
+{
+    use Hydrogen;
+    
+    public function toCollection(): Collection
+    {
+        return $this->query->collect();
+    }
+}
+```
+
+```php
+$users->toCollection()->each(function (User $user): void {
+    \var_dump($user);
+});
+```
+
+**Note:** Direct access to the Hydrogen build, instead of the 
+existing methods, which is provided by the Doctrine completely 
+**ignores** all relations (like: `@OneToMany(..., fetch="EAGER")`).
+
+### Retrieving A Single Entity
+
+f you just need to retrieve a single row from the database table, 
+you may use the first method. This method will return a single Entity object:
+
+```php
+$user = $repository->query->where('name', 'John')->first();
+
+echo $user->getName();
+```
+
+If you don't even need an entire row, you may extract a single 
+values from a record using additional arguments for `->first()` method. 
+This method will return the value of the column directly:
+
+```php
+[$name, $email] = $repository->query->where('name', 'John')->first('name', 'email');
+
+echo $name . ' with email ' . $email;
+```
+
+### Retrieving A List Of Field Values
+
+If you would like to retrieve an array or Collection containing the values of a single Entity's field value, 
+you may use the additional arguments for `->get()` or `->collect()` methods. 
+In this example, we'll retrieve a Collection of user ids and names:
+
+```php
+$users = $repository->query->get('id', 'name');
+
+foreach ($users as ['id' => $id, 'name' => $name]) {
+    echo $id . ': ' . $name;
+}
+```
+
+### Aggregates and Scalar Results
+
+The query builder also provides a variety of aggregate methods such as `count`, `max`, `min`, 
+`avg`, and `sum`. You may call any of these methods after constructing your query:
+
+```php
+$count = $users->query->count(); 
+
+$price = $prices->query->max('price');
+```
+
+Of course, you may combine these methods with other clauses:
+
+```php
+$price = $prices->query
+    ->where('user', $user)
+    ->where('finalized', 1)
+    ->avg('price');
+```
+
+In the event that your database supports any other functions, 
+then you can use these methods directly using `->scalar()` method:
+
+The first argument of the `->scalar()` method requires specifying the field that should be 
+contained in the result. The second optional argument allows you 
+to convert the type to the desired one.
+
+```php
+$price = $prices->query
+    ->select('AVG(price) as price')
+    ->scalar('price', 'int');
+```
+
+**Allowed Types**
+
+| Type       | Description                      |
+|------------|----------------------------------|
+| `int`      | Returns an integer value         |
+| `float`    | Returns a float value            |
+| `string`   | Returns a string value           |
+| `bool`     | Returns boolean value            |
+| `callable` | Returns the Closure instance     |
+| `object`   | Returns an object                |
+| `array`    | Returns an array                 |
+| `iterable` | `array` alias                    |
+
+**Query Invocations**
+
+| Method     | Description                              |
+|------------|------------------------------------------|
+| `get`      | Returns an array of entities             |
+| `collect`  | Returns a Collection of entities         |
+| `first`    | Returns the first result                 |
+| `scalar`   | Returns the single scalar value          |
+| `count`    | Returns count of given field             |
+| `sum`      | Returns sum of given field               |
+| `avg`      | Returns average of given field           |
+| `max`      | Returns max value of given field         |
+| `min`      | Returns min value of given field         |
+
+## Selects
+
+Using the `select()` method, you can specify a 
+custom select clause for the query:
+
+```php
+[0 => $user, 'count' => $count] = $users->query
+    ->select(['COUNT(id)' => 'count'])
     ->get();
-/**
- * SELECT entity, RAND() as HIDDEN rnd FROM ... ORDER BY entity.created_at ASC, rnd ASC
- *                                                       ^^^^^^ alias           ^^^ no alias
- */
+
+echo $user->getName();
+echo $count;
 ```
 
-### Eager loading
+## Where Clauses
 
-Suppose we have the following OneToOne relationship between the parent and child.
+### Simple Where Clauses
+
+You may use the where method on a query builder instance to add 
+where clauses to the query. The most basic call to where requires 
+three arguments. The first argument is the name of the column. 
+The second argument is an operator, which can be any of the 
+database's supported operators. Finally, the third argument is 
+the value to evaluate against the column.
+
+For example, here is a query that verifies the value of the 
+"votes" Entity field is equal to 100:
 
 ```php
-/** @ORM\Entity */
-class Child
-{
-    /**
-     * @var Parent
-     * @ORM\OneToOne(targetEntity=Parent::class, inversedBy="child")
-     * @ORM\JoinColumn(name="parent_id", referencedColumnName="id")
-     */
-    private $parent;
-}
-
-/** @ORM\Entity */
-class Parent
-{
-    /**
-     * @var Child
-     * @ORM\OneToOne(targetEntity=Child::class, mappedBy="parent")
-     */
-    private $child;
-}
+$users = $repository->query->where('votes', '=', 100)->get();
 ```
 
-Regardless of how you indicate your relationship, it will hit `N+1`, like this:
+For convenience, if you want to verify that a column is equal 
+to a given value, you may pass the value directly as the 
+second argument to the where method:
 
 ```php
-$query = Query::whereIn('id', [1, 2]);
-
-$children->findAll($query);
-
-/**
- * SELECT ... FROM children d0 WHERE d0.id IN ("1", "2");
- * SELECT ... FROM parents t0 LEFT JOIN children t3 ON t3.parent_id = t0.id WHERE t0.id = "1";
- * SELECT ... FROM parents t0 LEFT JOIN children t3 ON t3.parent_id = t0.id WHERE t0.id = "2";
- */
+$users = $repository->query->where('votes', 100)->get();
 ```
 
-Now let's try to force this relationship and see what happens:
+Of course, you may use a variety of other operators when 
+writing a where clause:
 
 ```php
-$query = Query::whereIn('id', [1, 2])
-    ->with('parent'); // Just add "->with(relationName)" method.
-
-$children->findAll($query);
-
-/**
- * SELECT c, p
- * FROM children c
- * LEFT JOIN parents p ON c.parent_id = p.id
- * WHERE c.id IN ("1", "2");
- */
-```
-
-### Relation selection
-
-You can add sample criteria for relationships using the second argument of the `with` method.
-
-```php
-$query->where('id', [1, 2])->with(['parent' => function(Query $sub) {
-    $sub->where('id', [33, 42]);
-}]);
-
-/**
- * SELECT child, parent
- * FROM children child
- * LEFT JOIN parents parent ON child.parent_id = parent.id
- * WHERE
- *    child.id IN ("1", "2") AND
- *    parent.id IN ("33", "42");
- */
-```
-
-## Repositories
-
-The interface signature has been improved and now contains the following methods.
-
-```php
-use RDS\Hydrogen\Collection;
-use RDS\Hydrogen\Query;
-
-interface ObjectRepository
-{
-    public function find($id): ?object;
-    public function findAll(): iterable;
-    public function findOneBy(Query $query): ?object;
-    public function findBy(Query $query): iterable;
-    public function count(Query $query): int;
-}
-```
-
-In addition, basic repositories for different types 
-of data sources have been added.
-
-### DatabaseRepository
-
-```php
-use RDS\Hydrogen\Repository\DatabaseRepository;
-
-class Example extends DatabaseRepository {}
-```
-
-### Selections
-
-```php
-use RDS\Hydrogen\Query;
-
-$query = Query::where('id', '>=', 42)->orderBy('id');
-
-$result = $repository->findAll($query);
-
-\var_dump($result->toArray());
-```
-
-### "In-place" queries
-
-You can make queries on the spot using these repositories as a data source.
-
-```php
-$repository = $em->getRepository(EntityClass::class);
-
-Query::from($repository)
-    ->where('id', 23)
-    ->collect(); // Collection { EntityClass, EntityClass }
-```
-
-### Scopes
-
-Also you can create "parts" of the query and separate them into other methods or classes.
-Each method should be referred to as METHOD_NAME. When you call a `query()` inside 
-the repository, it is already the source of scopes.
-
-```php
-class FriendsRepository extends DatabaseRepository
-{
-    public function findByUser(User $user): Collection
-    {
-        return $this->query
-            ->of($user)      // Call "$this->of($user)->"
-            ->collect();
-    }
+$users = $repository->query
+    ->where('votes', '>=', 100)
+    ->get();
     
-    /**
-     * This is an example scope method 
-     */
-    protected function of(User $user): Query
-    {
-        return $this->query->where('user', $user);
-    }
-}
-```
-
-Also you can add external query scopes as follows.
-
-```php
-$query = Query::new()->scope(new UsersRepository(), new FriendsRepository() [, $scope])
-    ->callSomeMethodFromRepo()
-    ->where('some', 23);
-```
-
-## Collections
-
-As the base kernel used a [Illuminate Collections](https://laravel.com/docs/5.5/collections) but 
-some new features have been added:
-
-- Add HOM proxy autocomplete.
-- Added support for global function calls using the [Higher Order Messaging](https://en.wikipedia.org/wiki/Higher_order_message)
- and the [Pattern Matching](https://en.wikipedia.org/wiki/Pattern_matching).
- 
-### Higher Order Messaging
-
-Pattern "`_`" is used to specify the location of the delegate in
-the function arguments in the higher-order messaging while using global functions.
-
-```php
-use RDS\Hydrogen\Collection;
-
-$data = [
-    ['value' => '23'],
-    ['value' => '42'],
-    ['value' => 'Hello!'],
-];
-
-
-$example1 = Collection::make($data)
-    ->map->value // ['23', '42', 'Hello!']
-    ->toArray();
+$users = $repository->query
+    ->where('votes', '<>', 100)
+    ->get();
     
-//
-// $example1 = \array_map(function (array $item): string {
-//      return $item['value']; 
-// }, $data);
-//
-
-$example2 = Collection::make($data)
-    ->map->value     // ['23', '42', 'Hello!']
-    ->map->intval(_) // [23, 42, 0]
-    ->filter()       // [23, 42]
-    ->toArray();
-    
-//
-//
-// $example2 = \array_map(function (array $item): string {
-//      return $item['value']; 
-// }, $data);
-//
-// $example2 = \array_map(function (string $value): int {
-//      return \intval($value);
-//                      ^^^^^ - pattern "_" will replaced to each delegated item value. 
-// }, $example1);
-//
-// $example2 = \array_filter($example2, function(int $value): bool {
-//      return (bool)$value;
-// });
-//
-//
-
-$example3 = Collection::make($data)
-    ->map->value            // ['23', '42', 'Hello!']
-    ->map->mbSubstr(_, 1)   // Using "mb_substr(_, 1)" -> ['3', '2', 'ello!']
-    ->toArray();
+$users = $repository->query
+    ->where('votes', '<=', 100)
+    ->get();
 ```
 
-### Destructuring
+### Or Statements
+
+You may chain where constraints together as well as add `or`
+clauses to the query. The `orWhere` method accepts the same 
+arguments as the where method:
 
 ```php
-use RDS\Hydrogen\Collection;
-
-$collection = Collection::make([
-    ['a' => 'A1', 'b' => 'B1' 'value' => '23'],
-    ['a' => 'A2', 'b' => 'B2' 'value' => '42'],
-    ['a' => 'A3', 'b' => 'B3' 'value' => 'Hello!'],
-]);
-
-// Displays all data
-foreach($collection as $item) {
-    \var_dump($item); // [a => 'A*', b => 'B*', value => '***'] 
-}
-
-// Displays only "a" field
-foreach ($collection as ['a' => $a]) {
-    \var_dump($a); // 'A'
-}
+$users = $repository->query
+    ->where('votes', '>', 100)
+    ->orWhere('name', 'John')
+    ->get();
 ```
+
+Alternatively, you can use the `->or` magic method:
+
+```php
+$users = $repository->query
+    ->where('votes', '>', 100)
+    ->or->where('name', 'John')
+    ->get();
+```
+
+### Additional Where Clauses
+
+**between**
+
+The `between` method verifies that a Entity fields's value is between two values:
+
+```php
+$users = $repository->query
+    ->between('votes', 1, 100)
+    ->get();
+
+$users = $repository->query
+    ->where('name', 'John')
+    ->orBetween('votes', 1, 100)
+    ->get();
+```
+
+**notBetween**
+
+The `notBetween` method verifies that a Entity field's value lies outside of two values:
+
+```php
+$users = $repository->query
+    ->notBetween('votes', 1, 100)
+    ->get();
+
+$users = $repository->query
+    ->where('name', 'John')
+    ->orNotBetween('votes', 1, 100)
+    ->get();
+```
+
+**whereIn / whereNotIn**
+
+The `whereIn` method verifies that a given Entity field's value 
+is contained within the given array:
+
+```php
+$users = $repository->query
+    ->whereIn('id', [1, 2, 3])
+    ->get();
+
+$users = $repository->query
+    ->where('id', [1, 2, 3])
+    // Equally: ->whereIn('id', [1, 2, 3])
+    ->orWhere('id', [101, 102, 103])
+    // Equally: ->orWhereIn('id', [101, 102, 103])
+    ->get();
+```
+
+The `whereNotIn` method verifies that the given Entity field's value 
+is not contained in the given array:
+
+```php
+$users = $repository->query
+    ->whereNotIn('id', [1, 2, 3])
+    ->get();
+
+$users = $repository->query
+    ->where('id', '<>', [1, 2, 3])
+    // Equally: ->whereNotIn('id', [1, 2, 3])
+    ->orWhere('id', '<>', [101, 102, 103])
+    // Equally: ->orWhereNotIn('id', [101, 102, 103])
+    ->get();
+```
+
+**whereNull / whereNotNull**
+
+The `whereNull` method verifies that the value of 
+the given Entity field is `NULL`:
+
+```php
+$users = $repository->query
+    ->whereNull('updatedAt')
+    ->get();
+
+$users = $repository->query
+    ->where('updatedAt', null)
+    // Equally: ->whereNull('updatedAt')
+    ->orWhereNull('deletedAt', null)
+    // Equally: ->orWhereNull('deletedAt')
+    ->get();
+```
+
+The `whereNotNull` method verifies that 
+the Entity field's value is not `NULL`:
+
+```php
+$users = $repository->query
+    ->whereNotNull('updatedAt')
+    ->get();
+
+$users = $repository->query
+    ->whereNotNull('updatedAt')
+    ->or->whereNotNull('deletedAt')
+    ->get();
+```
+
+**like / notLike**
+
+The `like` method verifies that the value of 
+the given Entity field like given value:
+
+```php
+$messages = $repository->query
+    ->like('description', '%some%')
+    ->orLike('description', '%any%')
+    ->get();
+
+$messages = $repository->query
+    ->where('description', '~', '%some%')
+    ->orWhere('description', '~', '%any%')
+    ->get();
+```
+
+The `notLike` method verifies that the value of 
+the given Entity field is not like given value:
+
+```php
+$messages = $repository->query
+    ->notLike('description', '%some%')
+    ->orNotLike('description', '%any%')
+    ->get();
+
+$messages = $repository->query
+    ->where('description', '!~', '%some%')
+    ->orWhere('description', '!~', '%any%')
+    ->get();
+```
+
+### Parameter Grouping
+
+Sometimes you may need to create more advanced where 
+clauses such as "where exists" clauses or nested parameter 
+groupings. The Hydrogen query builder can handle these as well. 
+To get started, let's look at an example of grouping 
+constraints within parenthesis:
+
+```php
+$users = $repository->query
+    ->where('name', 'John')
+    ->where(function(Query $query) {
+        $query->where('votes', '>', 100)
+              ->orWhere('title', 'Admin');
+    })
+    ->get();
+```
+
+As you can see, passing a `Closure` into the `where` method 
+instructs the query builder to begin a constraint group. 
+The `Closure` will receive a query builder instance which 
+you can use to set the constraints that should be contained 
+within the parenthesis group. The example above will 
+produce the following DQL:
+
+```sql
+SELECT u FROM App\Entity\User u 
+WHERE u.name = "John" AND (
+    u.votes > 100 OR
+    u.title = "Admin" 
+)
+```
+
+In addition to this, instead of the `where` or `orWhere` method, 
+you can use another options. Methods `or` and `and` will do the same:
+
+```php
+$users = $repository->query
+    ->where('name', 'John')
+    ->and(function(Query $query) {
+        $query->where('votes', '>', 100)
+              ->orWhere('title', 'Admin');
+    })
+    ->get();
+    
+// SELECT u FROM App\Entity\User u 
+// WHERE u.name = "John" AND (
+//     u.votes > 100 OR
+//     u.title = "Admin"
+// )
+    
+$users = $repository->query
+    ->where('name', 'John')
+    ->or(function(Query $query) {
+        $query->where('votes', '>', 100)
+              ->where('title', 'Admin');
+    })
+    ->get();
+    
+// SELECT u FROM App\Entity\User u 
+// WHERE u.name = "John" OR (
+//     u.votes > 100 AND
+//     u.title = "Admin"
+// )
+```
+
 
 --------------------
 

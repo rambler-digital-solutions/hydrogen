@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen\Criteria;
 
+use RDS\Hydrogen\Criteria\Common\Field;
 use RDS\Hydrogen\Query;
 
 /**
@@ -20,12 +21,10 @@ class Group extends Criterion
      * @var Query
      */
     private $parent;
-
     /**
      * @var bool
      */
     private $conjunction;
-
     /**
      * @var \Closure
      */
@@ -39,9 +38,17 @@ class Group extends Criterion
      */
     public function __construct(Query $parent, \Closure $then, bool $conjunction = true)
     {
+        $this->then = $then;
         $this->parent = $parent;
         $this->conjunction = $conjunction;
-        $this->then = $then;
+    }
+
+    /**
+     * @return Field
+     */
+    public function getField(): Field
+    {
+        throw new \LogicException(\sprintf('Criterion %s does not provide the field', \class_basename($this)));
     }
 
     /**
@@ -57,9 +64,16 @@ class Group extends Criterion
      */
     public function getQuery(): Query
     {
-        $query = $this->parent->sub();
+        $query = $this->parent->attach($this->parent->create());
 
         ($this->then)($query);
+
+        foreach ($query->getCriteria() as $criterion) {
+            if (! $criterion instanceof Where) {
+                $error = 'Groups allow to specify only Where selections, but %s given';
+                throw new \LogicException(\sprintf($error, $criterion));
+            }
+        }
 
         return $query;
     }

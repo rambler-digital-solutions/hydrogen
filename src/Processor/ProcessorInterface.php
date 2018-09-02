@@ -18,19 +18,19 @@ interface ProcessorInterface
 {
     /**
      * @param Query $query
+     * @return mixed
+     */
+    public function getScalarResult(Query $query);
+
+    /**
+     * @param Query $query
      * @return iterable
      */
-    public function get(Query $query): iterable;
+    public function getResult(Query $query): iterable;
 
     /**
      * @param Query $query
-     * @return object|null
+     * @return array
      */
-    public function first(Query $query);
-
-    /**
-     * @param Query $query
-     * @return int
-     */
-    public function count(Query $query): int;
+    public function getArrayResult(Query $query): array;
 }
