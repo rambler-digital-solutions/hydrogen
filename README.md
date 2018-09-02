@@ -29,6 +29,13 @@
     - [Or Statements](#or-statements)
     - [Additional Where Clauses](#additional-where-clauses)
     - [Parameter Grouping](#parameter-grouping)
+- [Ordering](#ordering)
+- [Grouping](#grouping)
+- [Limit And Offset](#limit-and-offset)
+- [Embeddables](#embeddables)
+- [Relations](#relations)
+    - [Greedy Loading](#greedy-loading)
+    - [Nested Relationships](#nested-relationships)
 
 ## Introduction
 
@@ -523,6 +530,275 @@ $users = $repository->query
 // )
 ```
 
+## Ordering
+
+**orderBy**
+
+The `orderBy` method allows you to sort the result of the query 
+by a given column. The first argument to the `orderBy` method 
+should be the column you wish to sort by, while the second argument 
+controls the direction of the sort and may be either asc or desc:
+
+```php
+$users = $repository->query
+    ->orderBy('name', 'desc')
+    ->get();
+```
+
+Also, you may use shortcuts `asc()` and `desc()` to simplify the code:
+
+```php
+$users = $repository->query
+    ->asc('id', 'createdAt')
+    ->desc('name')
+    ->get();
+```
+
+**latest / oldest**
+
+The latest and oldest methods allow you to easily order 
+results by date. By default, result will be ordered by the 
+`createdAt` Entity field. Or, you may pass the column name 
+that you wish to sort by:
+
+```php
+$users = $repository->query
+     ->latest()
+     ->get();
+     
+$posts = $repository->query
+    ->oldest('updatedAt')
+    ->get();
+```
+
+## Grouping
+
+**groupBy**
+
+The `groupBy` method may be used to group the query results:
+
+```php
+$users = $repository->query
+     ->groupBy('account')
+     ->get();
+```
+
+You may pass multiple arguments to the `groupBy` method to group by 
+multiple columns:
+
+```php
+$users = $repository->query
+     ->groupBy('firstName', 'status')
+     ->get();
+```
+
+**having**
+
+The `having` method's signature is similar to that 
+of the `where` method:
+
+```php
+$users = $repository->query
+    ->groupBy('account')
+    ->having('account.id', '>', 100)
+    ->get();
+```
+
+## Limit And Offset
+
+**skip / take**
+
+To limit the number of results returned from the query, or 
+to skip a given number of results in the query, you may 
+use the `skip()` and `take()` methods:
+
+```php
+$users = $repository->query->skip(10)->take(5)->get();
+```
+
+Alternatively, you may use the `limit` and `offset` methods:
+
+```php
+$users = $repository->query
+    ->offset(10)
+    ->limit(5)
+    ->get();
+```
+
+**before / after**
+
+Usually during a heavy load on the DB, the `offset` can shift while 
+inserting new records into the table. In this case it is worth using 
+the methods of `before()` and `after()` to ensure that the subsequent 
+sample will be strictly following the previous one.
+
+Let's give an example of obtaining 10 articles,
+which are located after the id 15:
+
+```php
+$articles = $repository->query
+    ->where('category', 'news')
+    ->after('id', 15)
+    ->take(10)
+    ->get();
+```
+
+**range**
+
+You may use the `range()` method to specify exactly which 
+record you want to receive as a result:
+
+```php
+$articles = $repository->range(10, 20)->get();
+```
+
+## Embeddables
+
+Embeddables are classes which are not entities themselves, but are 
+embedded in entities and can also be queried by Hydrogen. 
+You'll mostly want to use them to reduce duplication or separating concerns. 
+Value objects such as date range or address are the primary use 
+case for this feature.
+
+```php
+<?php
+
+/**
+ * @ORM\Entity(repositoryClass=UsersRepository::class)
+ */
+class User
+{
+    /**
+     * @ORM\Embedded(class=Address::class) 
+     */
+    private $address;
+}
+
+/**
+ * @ORM\Embeddable()
+ */
+class Address
+{
+    /**
+     * @ORM\Column(type="string") 
+     */
+    private $city;
+
+    /** 
+     * @ORM\Column(type="string") 
+     */
+    private $country;
+}
+```
+
+To manage Embeddables through queries, you can use the point (`.`) operator:
+
+```php
+<?php
+
+class UsersRepository extends EntityRepository
+{
+    use Hydrogen;
+    
+    public function findAllOrderedByCountry(): iterable
+    {
+        return $this->query->asc('address.country')->get();
+    }
+}
+```
+
+## Relations
+
+The Doctrine ORM provides several types of different relations: `@OneToOne`, 
+`@OneToMany`, `@ManyToOne` and `@ManyToMany`. And "greed" for loading these 
+relations is set at the metadata level of the entities. The Doctrine 
+does not provide the ability to manage relations and load them 
+during querying, so when you retrieve the data, you can encounter 
+`N+1` queries without the use of DQL, especially 
+on `@OneToOne` relations, where there is simply no other loading option.
+
+The Hydrogen allows you to flexibly manage how to obtain relations at 
+the query level, as well as their number and additional aggregate functions 
+applicable to these relationships:
+
+```php
+<?php
+
+/** 
+ * @ORM\Entity() 
+ */
+class Customer
+{
+    /**
+     * @ORM\OneToOne(targetEntity=Cart::class, mappedBy="customer")
+     */
+    private $cart;
+}
+
+/** 
+ * @ORM\Entity() 
+ */
+class Cart
+{
+    /**
+     * @ORM\OneToOne(targetEntity=Customer::class, inversedBy="cart")
+     * @ORM\JoinColumn(name="customer_id", referencedColumnName="id")
+     */
+    private $customer;
+}
+```
+
+### Greedy Loading
+
+If you create a basic query to the repository, in this case you will 
+get the same `N+1`, where for each element the blocks will be 
+generated with one additional query, for each related entity.
+
+In order to avoid this, use the `with()` method to indicate all 
+the links that must be greedily loaded:
+
+```php
+<?php
+
+class CustomerRepository extends EntityRepository
+{
+    use Hydrogen;
+
+    public function findAllWithCarts()
+    {
+        return $this->query->with('cart')->get();
+    }
+}
+```
+
+As a result, we obtain the following result:
+
+```php
+$repository->findAll();
+
+// 1: SELECT с, c.customer_id FROM Customer c
+// 2: SELECT c FROM Cart c WHERE c.id = ?
+// 3: SELECT c FROM Cart c WHERE c.id = ?
+// ...: SELECT c FROM Cart c WHERE c.id = ?
+```
+
+```php
+$repository->findAllWithCarts();
+
+// 1: SELECT с1, c2 FROM Customer c1 LEFT JOIN Cart c2 ON c1.customer_id = c2.id
+```
+
+### Nested Relationships
+
+The sampling method described above affects only the direct relationship 
+indicated in `->with()` method. In order to "greedly" loading of the entire
+chain of relationships you may use the point (`.`) operator:
+
+```php
+$result = $users->query
+    ->with('messages', 'posts.author')
+    ->get();
+```
 
 --------------------
 
