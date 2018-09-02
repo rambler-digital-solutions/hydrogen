@@ -476,7 +476,7 @@ constraints within parenthesis:
 ```php
 $users = $repository->query
     ->where('name', 'John')
-    ->where(function(Query $query) {
+    ->where(function (Query $query): void {
         $query->where('votes', '>', 100)
               ->orWhere('title', 'Admin');
     })
@@ -504,7 +504,7 @@ you can use another options. Methods `or` and `and` will do the same:
 ```php
 $users = $repository->query
     ->where('name', 'John')
-    ->and(function(Query $query) {
+    ->and(function (Query $query): void {
         $query->where('votes', '>', 100)
               ->orWhere('title', 'Admin');
     })
@@ -518,7 +518,7 @@ $users = $repository->query
     
 $users = $repository->query
     ->where('name', 'John')
-    ->or(function(Query $query) {
+    ->or(function (Query $query): void {
         $query->where('votes', '>', 100)
               ->where('title', 'Admin');
     })
@@ -765,7 +765,7 @@ class CustomerRepository extends EntityRepository
 {
     use Hydrogen;
 
-    public function findAllWithCarts()
+    public function findAllWithCarts(): iterable
     {
         return $this->query->with('cart')->get();
     }
@@ -810,7 +810,7 @@ which are indicated in the form of an additional callback:
 
 ```php
 $users = $repository->query
-    ->with(['messages' => function (Query $query) {
+    ->with(['messages' => function (Query $query): void {
         $query->notNull('deletedAt')->asc('createdAt');
     }])
     ->get();
