@@ -36,6 +36,7 @@
 - [Relations](#relations)
     - [Greedy Loading](#greedy-loading)
     - [Nested Relationships](#nested-relationships)
+    - [Relations Subqueries](#relations-subqueries)
 
 ## Introduction
 
@@ -797,6 +798,21 @@ chain of relationships you may use the point (`.`) operator:
 ```php
 $result = $users->query
     ->with('messages', 'posts.author')
+    ->get();
+```
+
+### Relations Subqueries
+
+Sometimes you need to carefully select only those elements of the 
+relationships that are required or sort them in the desired order. 
+In this case, you will be assisted by internal subqueries for relationships, 
+which are indicated in the form of an additional callback:
+
+```php
+$users = $repository->query
+    ->with(['messages' => function (Query $query) {
+        $query->notNull('deletedAt')->asc('createdAt');
+    }])
     ->get();
 ```
 
