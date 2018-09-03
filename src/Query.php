@@ -241,4 +241,12 @@ class Query implements \IteratorAggregate
             yield $result;
         }
     }
+
+    /**
+     * @return bool
+     */
+    public function isEmpty(): bool
+    {
+        return $this->criteria->count() === 0;
+    }
 }

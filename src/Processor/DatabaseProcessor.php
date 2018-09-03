@@ -26,6 +26,7 @@ class DatabaseProcessor extends Processor
         Criteria\Group::class     => DatabaseProcessor\GroupBuilder::class,
         Criteria\GroupBy::class   => DatabaseProcessor\GroupByBuilder::class,
         Criteria\Having::class    => DatabaseProcessor\HavingBuilder::class,
+        Criteria\Join::class      => DatabaseProcessor\JoinBuilder::class,
         Criteria\Limit::class     => DatabaseProcessor\LimitBuilder::class,
         Criteria\Offset::class    => DatabaseProcessor\OffsetBuilder::class,
         Criteria\OrderBy::class   => DatabaseProcessor\OrderByBuilder::class,
@@ -52,8 +53,6 @@ class DatabaseProcessor extends Processor
      */
     private function exec(Query $query, \Closure $execute)
     {
-        $metadata = $this->em->getClassMetadata($this->repository->getClassName());
-
         $queue = new Queue();
 
         /** @var QueryBuilder $builder */
@@ -61,7 +60,7 @@ class DatabaseProcessor extends Processor
 
         $result = $execute($builder->getQuery());
 
-        foreach ($queue->reduce($result, $metadata) as $out) {
+        foreach ($queue->reduce($result, $this->meta) as $out) {
             $children = $this->bypass($out, $query, $this->applicator($builder));
 
             $this->fillQueueThrough($queue, $children);
@@ -95,7 +94,10 @@ class DatabaseProcessor extends Processor
      */
     protected function toBuilder(Query $query): \Generator
     {
-        yield from $generator = $this->apply($this->em->createQueryBuilder(), $query);
+        $builder = $this->em->createQueryBuilder();
+        $builder->setCacheable(false);
+
+        yield from $generator = $this->apply($builder, $query);
 
         return $generator->getReturn();
     }

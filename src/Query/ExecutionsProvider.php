@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen\Query;
 
+use Illuminate\Support\Arr;
 use RDS\Hydrogen\Query;
 use RDS\Hydrogen\Collection\Collection;
 
@@ -26,21 +27,17 @@ trait ExecutionsProvider
     {
         $processor = $this->getRepository()->getProcessor();
 
-        if (\count($fields) === 0) {
-            return $processor->getResult($this);
-        }
-
-        return Collection::wrap($processor->getArrayResult($this))
-            ->map(function ($item) use ($fields) {
-                $result = [];
-
-                foreach ($fields as $field) {
-                    $result[$field] = \data_get($item, $field);
+        if (\count($fields)) {
+            return \collect($processor->getArrayResult($this))->map(function (array $data) use ($fields) {
+                if (\count($fields)) {
+                    return Arr::only($data, $fields);
                 }
 
-                return $result;
-            })
-            ->toArray();
+                return $data;
+            });
+        }
+
+        return $processor->getResult($this);
     }
 
     /**

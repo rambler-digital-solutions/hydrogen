@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen\Processor\DatabaseProcessor;
 
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\ClassMetadata;
 use RDS\Hydrogen\Processor\BuilderInterface;
 
 /**
@@ -16,6 +18,36 @@ use RDS\Hydrogen\Processor\BuilderInterface;
  */
 abstract class Builder implements BuilderInterface
 {
+    /**
+     * @var ClassMetadata
+     */
+    protected $meta;
+
+    /**
+     * @var EntityManagerInterface
+     */
+    protected $em;
+
+    /**
+     * Builder constructor.
+     * @param ClassMetadata $meta
+     * @param EntityManagerInterface $em
+     */
+    public function __construct(ClassMetadata $meta, EntityManagerInterface $em)
+    {
+        $this->meta = $meta;
+        $this->em = $em;
+    }
+
+    /**
+     * @param string $entity
+     * @return ClassMetadata
+     */
+    protected function meta(string $entity): ClassMetadata
+    {
+        return $this->em->getClassMetadata($entity);
+    }
+
     /**
      * @return \Generator
      */

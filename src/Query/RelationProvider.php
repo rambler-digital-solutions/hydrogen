@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen\Query;
 
-use RDS\Hydrogen\Criteria\Relation;
+use RDS\Hydrogen\Criteria\Join;
 use RDS\Hydrogen\Query;
 
 /**
@@ -24,9 +24,56 @@ trait RelationProvider
      */
     public function with(...$relations): self
     {
+        return $this->addRelation(function(string $field, \Closure $inner = null) {
+            // TODO
+            // return new Relation($field, $this, $inner);
+            return new Join($field, $this, Join::TYPE_LEFT_JOIN, $inner);
+        }, ...$relations);
+    }
+
+    /**
+     * @param string|array ...$relations
+     * @return Query|$this|self
+     */
+    public function join(...$relations): self
+    {
+        return $this->addRelation(function(string $field, \Closure $inner = null) {
+            return new Join($field, $this, Join::TYPE_JOIN, $inner);
+        }, ...$relations);
+    }
+
+    /**
+     * @param string|array ...$relations
+     * @return Query|$this|self
+     */
+    public function leftJoin(...$relations): self
+    {
+        return $this->addRelation(function(string $field, \Closure $inner = null) {
+            return new Join($field, $this, Join::TYPE_LEFT_JOIN, $inner);
+        }, ...$relations);
+    }
+
+    /**
+     * @param string|array ...$relations
+     * @return Query|$this|self
+     */
+    public function innerJoin(...$relations): self
+    {
+        return $this->addRelation(function(string $field, \Closure $inner = null) {
+            return new Join($field, $this, Join::TYPE_INNER_JOIN, $inner);
+        }, ...$relations);
+    }
+
+    /**
+     * @param \Closure $onCreate
+     * @param string|array ...$relations
+     * @return Query|$this|self
+     */
+    private function addRelation(\Closure $onCreate, ...$relations): self
+    {
         foreach ($relations as $relation) {
             if (\is_string($relation)) {
-                $this->add(new Relation($relation, $this));
+                $this->add($onCreate($relation));
                 continue;
             }
 
@@ -34,7 +81,7 @@ trait RelationProvider
                 foreach ($relation as $rel => $sub) {
                     \assert(\is_string($rel) && $sub instanceof \Closure);
 
-                    $this->add(new Relation($rel, $this, $sub));
+                    $this->add($onCreate($rel, $sub));
                 }
                 continue;
             }

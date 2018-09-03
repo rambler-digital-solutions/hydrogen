@@ -21,6 +21,25 @@ use RDS\Hydrogen\Tests\Application\Mock\Repository\MessagesRepository;
 class MessagesTestCase extends QueryTestCase
 {
     /**
+     * @throws \PHPUnit\Framework\Exception
+     */
+    public function testSimpleRelations(): void
+    {
+        $queries = $this->log(function () {
+            /** @var Message[] $messages */
+            $messages = $this->getRepository()->query
+                ->with('author')
+                ->get();
+
+            foreach ($messages as $message) {
+                $this->assertNotNull($message->author);
+            }
+        });
+
+        $this->assertCount(1, $queries);
+    }
+
+    /**
      * @param Generator $faker
      * @return \Generator|User[]
      * @throws \Exception

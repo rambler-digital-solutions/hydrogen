@@ -12,6 +12,7 @@ namespace RDS\Hydrogen\Processor;
 use Doctrine\Common\Persistence\ObjectRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
+use Doctrine\ORM\Mapping\ClassMetadata;
 use RDS\Hydrogen\Criteria\Common\Field;
 use RDS\Hydrogen\Criteria\CriterionInterface;
 use RDS\Hydrogen\Query;
@@ -37,6 +38,11 @@ abstract class Processor implements ProcessorInterface
     protected $em;
 
     /**
+     * @var ClassMetadata
+     */
+    protected $meta;
+
+    /**
      * @var array|BuilderInterface[]
      */
     private $builderInstances = [];
@@ -48,10 +54,25 @@ abstract class Processor implements ProcessorInterface
      */
     public function __construct(ObjectRepository $repository, EntityManagerInterface $em)
     {
-        $this->em         = $em;
+        $this->em = $em;
+        $this->meta = $em->getClassMetadata($repository->getClassName());
         $this->repository = $repository;
 
         \assert(\count(static::CRITERIA_MAPPINGS));
+    }
+
+    /**
+     * @param mixed $context
+     * @param Query $query
+     * @return \Generator
+     */
+    protected function forEach($context, Query $query): \Generator
+    {
+        foreach ($query->getCriteria() as $criterion) {
+            $builder = $this->getBuilder($criterion);
+
+            yield from $builder->apply($context, $criterion);
+        }
     }
 
     /**
@@ -77,21 +98,7 @@ abstract class Processor implements ProcessorInterface
             throw new \InvalidArgumentException($error);
         }
 
-        return $this->builderInstances[$key] = new $processor($this);
-    }
-
-    /**
-     * @param mixed $context
-     * @param Query $query
-     * @return \Generator
-     */
-    protected function forEach($context, Query $query): \Generator
-    {
-        foreach ($query->getCriteria() as $criterion) {
-            $builder = $this->getBuilder($criterion);
-
-            yield from $builder->apply($context, $criterion);
-        }
+        return $this->builderInstances[$key] = new $processor($this->meta, $this->em);
     }
 
     /**
