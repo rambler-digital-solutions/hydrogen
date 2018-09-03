@@ -37,6 +37,9 @@
     - [Greedy Loading](#greedy-loading)
     - [Nested Relationships](#nested-relationships)
     - [Relations Subqueries](#relations-subqueries)
+- [Collections](#collections)
+    - [Higher Order Messaging](#higher-order-messaging)
+    - [Destructuring](#destructuring)
 
 ## Introduction
 
@@ -814,6 +817,91 @@ $users = $repository->query
         $query->notNull('deletedAt')->asc('createdAt');
     }])
     ->get();
+```
+
+## Collections
+
+As the base kernel used a [Illuminate Collections](https://laravel.com/docs/5.5/collections) but 
+some new features have been added:
+
+- Add HOM proxy autocomplete.
+- Added support for global function calls using the [Higher Order Messaging](https://en.wikipedia.org/wiki/Higher_order_message)
+ and the [Pattern Matching](https://en.wikipedia.org/wiki/Pattern_matching).
+ 
+### Higher Order Messaging
+
+Pattern "`_`" is used to specify the location of the delegate in
+the function arguments in the higher-order messaging while using global functions.
+
+```php
+use RDS\Hydrogen\Collection\Collection;
+
+$data = [
+    ['value' => '23'],
+    ['value' => '42'],
+    ['value' => 'Hello!'],
+];
+
+
+$example1 = Collection::make($data)
+    ->map->value // ['23', '42', 'Hello!']
+    ->toArray();
+    
+//
+// $example1 = \array_map(function (array $item): string {
+//      return $item['value']; 
+// }, $data);
+//
+
+$example2 = Collection::make($data)
+    ->map->value     // ['23', '42', 'Hello!']
+    ->map->intval(_) // [23, 42, 0]
+    ->filter()       // [23, 42]
+    ->toArray();
+    
+//
+//
+// $example2 = \array_map(function (array $item): string {
+//      return $item['value']; 
+// }, $data);
+//
+// $example2 = \array_map(function (string $value): int {
+//      return \intval($value);
+//                      ^^^^^ - pattern "_" will replaced to each delegated item value. 
+// }, $example1);
+//
+// $example2 = \array_filter($example2, function(int $value): bool {
+//      return (bool)$value;
+// });
+//
+//
+
+$example3 = Collection::make($data)
+    ->map->value            // ['23', '42', 'Hello!']
+    ->map->mbSubstr(_, 1)   // Using "mb_substr(_, 1)" -> ['3', '2', 'ello!']
+    ->toArray();
+```
+
+### Destructuring
+
+```php
+use RDS\Hydrogen\Collection\Collection;
+
+$collection = Collection::make([
+    ['a' => 'A1', 'b' => 'B1' 'value' => '23'],
+    ['a' => 'A2', 'b' => 'B2' 'value' => '42'],
+    ['a' => 'A3', 'b' => 'B3' 'value' => 'Hello!'],
+]);
+
+// Displays all data
+foreach($collection as $item) {
+    \var_dump($item); // [a => 'A*', b => 'B*', value => '***'] 
+}
+
+// Displays only "a" field
+foreach ($collection as ['a' => $a]) {
+    \var_dump($a); // 'A'
+}
 ```
 
 --------------------
