@@ -58,7 +58,8 @@ You need to make sure that your server meets the following requirements:
 - PDO PHP Extension
 - Mbstring PHP Extension
 - JSON PHP Extension
-- [doctrine/orm >= 2.5](https://packagist.org/packages/doctrine/orm) 
+- [doctrine/orm >= 2.5](https://packagist.org/packages/doctrine/orm)
+- [illuminate/support >= 5.5](https://packagist.org/packages/illuminate/support)
 
 ### Installing Hydrogen
 
@@ -166,7 +167,7 @@ existing methods, which is provided by the Doctrine completely
 
 ### Retrieving A Single Entity
 
-f you just need to retrieve a single row from the database table, 
+If you just need to retrieve a single row from the database table, 
 you may use the first method. This method will return a single Entity object:
 
 ```php
