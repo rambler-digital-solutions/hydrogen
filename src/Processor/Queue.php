@@ -49,17 +49,13 @@ class Queue implements \IteratorAggregate
     }
 
     /**
-     * @param array $args
-     * @return \Generator
+     * @param mixed $value
+     * @return void
      */
-    public function reduce(...$args): \Generator
+    public function invoke($value): void
     {
-        foreach ($this->getIterator() as $item) {
-            $output = $item(...$args);
-
-            if ($output instanceof \Traversable) {
-                yield $output;
-            }
+        foreach ($this->queue as $callback) {
+            $callback($value);
         }
     }
 }

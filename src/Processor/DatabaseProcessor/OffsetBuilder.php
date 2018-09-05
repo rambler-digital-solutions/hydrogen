@@ -21,12 +21,12 @@ class OffsetBuilder extends Builder
     /**
      * @param QueryBuilder $builder
      * @param CriterionInterface|Offset $offset
-     * @return \Generator
+     * @return iterable|null
      */
-    public function apply($builder, CriterionInterface $offset): \Generator
+    public function apply($builder, CriterionInterface $offset): ?iterable
     {
         $builder->setFirstResult($offset->getOffset());
 
-        yield from $this->nothing();
+        return null;
     }
 }

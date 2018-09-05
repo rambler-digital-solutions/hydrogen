@@ -12,6 +12,7 @@ namespace RDS\Hydrogen\Processor\DatabaseProcessor;
 use Doctrine\ORM\QueryBuilder;
 use RDS\Hydrogen\Criteria\CriterionInterface;
 use RDS\Hydrogen\Criteria\Having;
+use RDS\Hydrogen\Processor\DatabaseProcessor\Common\Expression;
 
 /**
  * Class HavingBuilder
@@ -21,18 +22,17 @@ class HavingBuilder extends WhereBuilder
     /**
      * @param QueryBuilder $builder
      * @param CriterionInterface|Having $having
-     * @return \Generator
+     * @return iterable|null
      */
-    final public function apply($builder, CriterionInterface $having): \Generator
+    public function apply($builder, CriterionInterface $having): ?iterable
     {
-        $expression = $this->getDoctrineExpression($having, $builder->expr(), $having->getField());
+        $expression = new Expression($builder, $having->getOperator(), $having->getValue());
+        yield from $result = $expression->create($having->getField());
 
-        yield from $this->extractResult($expression, function ($expr) use ($having, $builder) {
-            if ($having->isAnd()) {
-                $builder->andHaving($expr);
-            } else {
-                $builder->orHaving($expr);
-            }
-        });
+        if ($having->isAnd()) {
+            $builder->andHaving($result->getReturn());
+        } else {
+            $builder->orHaving($result->getReturn());
+        }
     }
 }

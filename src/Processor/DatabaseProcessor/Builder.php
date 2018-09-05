@@ -9,13 +9,47 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen\Processor\DatabaseProcessor;
 
+use Doctrine\ORM\Mapping\ClassMetadata;
 use RDS\Hydrogen\Processor\BuilderInterface;
+use RDS\Hydrogen\Processor\ProcessorInterface;
+use RDS\Hydrogen\Query;
 
 /**
  * Class Builder
  */
 abstract class Builder implements BuilderInterface
 {
+    /**
+     * @var ProcessorInterface
+     */
+    protected $processor;
+
+    /**
+     * @var Query
+     */
+    protected $query;
+
+    /**
+     * Builder constructor.
+     * @param Query $query
+     * @param ProcessorInterface $processor
+     */
+    public function __construct(Query $query, ProcessorInterface $processor)
+    {
+        $this->processor = $processor;
+        $this->query = $query;
+    }
+
+    /**
+     * @param string $entity
+     * @param Query $query
+     * @return iterable
+     */
+    protected function execute(string $entity, Query $query): iterable
+    {
+        return $this->processor->getProcessor($entity)->getResult($query);
+    }
+
     /**
      * @return \Generator
      */
@@ -24,17 +58,5 @@ abstract class Builder implements BuilderInterface
         if (false) {
             yield;
         }
-    }
-
-    /**
-     * @param \Generator $generator
-     * @param \Closure $then
-     * @return \Generator
-     */
-    protected function extractResult(\Generator $generator, \Closure $then): \Generator
-    {
-        yield from $generator;
-
-        $then($generator->getReturn());
     }
 }

@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen\Criteria;
 
-use RDS\Hydrogen\Criteria\Common\Field;
 use RDS\Hydrogen\Query;
 
 /**
@@ -18,19 +17,23 @@ use RDS\Hydrogen\Query;
 interface CriterionInterface
 {
     /**
-     * @return Field
-     */
-    public function getField(): Field;
-
-    /**
      * @param Query $query
      * @return CriterionInterface
      */
-    public function withQuery(Query $query): CriterionInterface;
+    public function attach(Query $query): CriterionInterface;
 
     /**
-     * @param string $alias
-     * @return CriterionInterface
+     * @return bool
      */
-    public function withAlias(string $alias): CriterionInterface;
+    public function isAttached(): bool;
+
+    /**
+     * @return Query
+     */
+    public function getQuery(): Query;
+
+    /**
+     * @return string
+     */
+    public function getQueryAlias(): string;
 }

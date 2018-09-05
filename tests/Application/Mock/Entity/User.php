@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace RDS\Hydrogen\Tests\Application\Mock\Entity;
 
 use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use RDS\Hydrogen\Collection\Collection;
 use RDS\Hydrogen\Tests\Application\Mock\Repository\UsersRepository;
 
 /**
@@ -35,7 +35,7 @@ class User
     public $name;
 
     /**
-     * @ORM\OneToMany(targetEntity=Message::class, mappedBy="author", cascade={"persist"}, fetch="EAGER")
+     * @ORM\OneToMany(targetEntity=Message::class, mappedBy="author", cascade={"persist"})
      * @var ArrayCollection|Message[]
      */
     public $messages;

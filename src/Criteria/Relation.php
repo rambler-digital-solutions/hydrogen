@@ -18,14 +18,14 @@ use RDS\Hydrogen\Query;
 class Relation extends Criterion
 {
     /**
-     * @var \Closure
+     * @var Field
      */
-    private $inner;
+    private $relation;
 
     /**
-     * @var Query
+     * @var \Closure|null
      */
-    private $parent;
+    private $inner;
 
     /**
      * Relation constructor.
@@ -33,20 +33,12 @@ class Relation extends Criterion
      * @param Query $parent
      * @param \Closure|null $inner
      */
-    public function __construct(string $relation, Query $parent, \Closure $inner = null)
+    public function __construct(Query $parent, string $relation, \Closure $inner = null)
     {
-        parent::__construct($relation);
+        parent::__construct($parent);
 
+        $this->relation = $this->field($relation);
         $this->inner = $inner;
-        $this->parent = $parent;
-    }
-
-    /**
-     * @return string
-     */
-    public function getAlias(): string
-    {
-        return $this->parent->getAlias();
     }
 
     /**
@@ -54,20 +46,20 @@ class Relation extends Criterion
      */
     public function getRelation(): Field
     {
-        return $this->getField();
+        return $this->relation;
     }
 
     /**
      * @return Query
      */
-    public function getQuery(): Query
+    public function getRelatedQuery(): Query
     {
-        $query = $this->parent->create();
+        $related = $this->query->create();
 
         if ($this->inner) {
-            ($this->inner)($query);
+            ($this->inner)($related);
         }
 
-        return $query;
+        return $related;
     }
 }

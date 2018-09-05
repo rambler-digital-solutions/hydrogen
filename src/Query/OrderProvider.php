@@ -52,7 +52,7 @@ trait OrderProvider
      */
     public function orderBy(string $field, bool $asc = true): self
     {
-        return $this->add(new OrderBy($field, $asc));
+        return $this->add(new OrderBy($this, $field, $asc));
     }
 
     /**

@@ -9,7 +9,8 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen\Query;
 
-use RDS\Hydrogen\Criteria\Group;
+use RDS\Hydrogen\Criteria\HavingGroup;
+use RDS\Hydrogen\Criteria\WhereGroup;
 use RDS\Hydrogen\Criteria\GroupBy;
 use RDS\Hydrogen\Criteria\Having;
 use RDS\Hydrogen\Query;
@@ -27,7 +28,7 @@ trait GroupByProvider
     public function groupBy(string ...$fields): self
     {
         foreach ($fields as $field) {
-            $this->add(new GroupBy($field));
+            $this->add(new GroupBy($this, $field));
         }
 
         return $this;
@@ -55,11 +56,11 @@ trait GroupByProvider
         if (\is_string($field)) {
             [$operator, $value] = Having::completeMissingParameters($valueOrOperator, $value);
 
-            return $this->add(new Having($field, $operator, $value, $this->mode()));
+            return $this->add(new Having($this, $field, $operator, $value, $this->mode()));
         }
 
         if ($field instanceof \Closure) {
-            return $this->add(new Group($this, $field, $this->mode()));
+            return $this->add(new HavingGroup($this, $field, $this->mode()));
         }
 
         $error = \vsprintf('Selection set should be a type of string or Closure, but %s given', [

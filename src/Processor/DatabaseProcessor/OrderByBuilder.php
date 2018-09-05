@@ -21,9 +21,9 @@ class OrderByBuilder extends Builder
     /**
      * @param QueryBuilder $builder
      * @param CriterionInterface|OrderBy $orderBy
-     * @return \Generator
+     * @return iterable|null
      */
-    public function apply($builder, CriterionInterface $orderBy): \Generator
+    public function apply($builder, CriterionInterface $orderBy): ?iterable
     {
         $builder->orderBy(yield $orderBy->getField(), $orderBy->getDirection());
     }

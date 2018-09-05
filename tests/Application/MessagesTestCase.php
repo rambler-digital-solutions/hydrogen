@@ -11,6 +11,7 @@ namespace RDS\Hydrogen\Tests\Application;
 
 use Doctrine\ORM\EntityRepository;
 use Faker\Generator;
+use RDS\Hydrogen\Query;
 use RDS\Hydrogen\Tests\Application\Mock\Entity\Message;
 use RDS\Hydrogen\Tests\Application\Mock\Entity\User;
 use RDS\Hydrogen\Tests\Application\Mock\Repository\MessagesRepository;
@@ -20,6 +21,25 @@ use RDS\Hydrogen\Tests\Application\Mock\Repository\MessagesRepository;
  */
 class MessagesTestCase extends QueryTestCase
 {
+    /**
+     * @throws \PHPUnit\Framework\Exception
+     */
+    public function testSimpleRelations(): void
+    {
+        $queries = $this->log(function () {
+            /** @var Message[] $messages */
+            $messages = $this->getRepository()->query
+                ->leftJoin('author')
+                ->get();
+
+            foreach ($messages as $message) {
+                $this->assertInternalType('string', $message->author->name);
+            }
+        });
+
+        $this->assertCount(1, $queries);
+    }
+
     /**
      * @param Generator $faker
      * @return \Generator|User[]

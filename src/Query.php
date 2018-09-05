@@ -10,15 +10,19 @@ declare(strict_types=1);
 namespace RDS\Hydrogen;
 
 use Doctrine\Common\Persistence\ObjectRepository;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\ClassMetadata;
 use Illuminate\Support\Traits\Macroable;
 use RDS\Hydrogen\Criteria\CriterionInterface;
+use RDS\Hydrogen\Processor\ProcessorInterface;
 use RDS\Hydrogen\Query\AliasProvider;
+use RDS\Hydrogen\Query\ExecutionsProvider;
 use RDS\Hydrogen\Query\GroupByProvider;
 use RDS\Hydrogen\Query\LimitAndOffsetProvider;
+use RDS\Hydrogen\Query\ModeProvider;
 use RDS\Hydrogen\Query\OrderProvider;
 use RDS\Hydrogen\Query\RelationProvider;
 use RDS\Hydrogen\Query\RepositoryProvider;
-use RDS\Hydrogen\Query\ExecutionsProvider;
 use RDS\Hydrogen\Query\SelectProvider;
 use RDS\Hydrogen\Query\WhereProvider;
 
@@ -29,7 +33,10 @@ class Query implements \IteratorAggregate
 {
     use Macroable {
         Macroable::__call as __macroableCall;
+        Macroable::__callStatic as __macroableCallStatic;
     }
+
+    use ModeProvider;
     use AliasProvider;
     use WhereProvider;
     use OrderProvider;
@@ -41,7 +48,12 @@ class Query implements \IteratorAggregate
     use LimitAndOffsetProvider;
 
     /**
-     * @var CriterionInterface[]|\SplObjectStorage
+     * @var bool
+     */
+    private static $booted = false;
+
+    /**
+     * @var CriterionInterface[]|\SplDoublyLinkedList
      */
     protected $criteria;
 
@@ -56,7 +68,7 @@ class Query implements \IteratorAggregate
      */
     public function __construct(ObjectRepository $repository = null)
     {
-        $this->criteria = new \SplObjectStorage();
+        $this->criteria = new \SplDoublyLinkedList();
 
         if ($repository) {
             $this->from($repository);
@@ -64,16 +76,109 @@ class Query implements \IteratorAggregate
     }
 
     /**
-     * Adds the specified set of scopes (method groups) to the query.
-     *
-     * @param object|string ...$scopes
-     * @return Query|$this
+     * @param string $stmt
+     * @return string
      */
-    public function scope(...$scopes): self
+    public static function raw(string $stmt): string
     {
-        $this->scopes = \array_merge($this->scopes, $scopes);
+        return \sprintf("RAW('%s')", \addcslashes($stmt, "'"));
+    }
 
-        return $this;
+    /**
+     * @param string $method
+     * @param array $parameters
+     * @return mixed
+     */
+    public static function __callStatic(string $method, array $parameters = [])
+    {
+        $instance = new static();
+
+        return $instance->$method(...$parameters);
+    }
+
+    /**
+     * @param string $criterion
+     * @return bool
+     */
+    public function has(string $criterion): bool
+    {
+        foreach ($this->criteria as $haystack) {
+            if (\get_class($haystack) === $criterion) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param string $name
+     * @return null
+     */
+    public function __get(string $name)
+    {
+        if (\method_exists($this, $name)) {
+            return $this->$name();
+        }
+
+        return null;
+    }
+
+    /**
+     * @return string
+     */
+    public function getClassName(): string
+    {
+        return $this->getRepository()->getClassName();
+    }
+
+    /**
+     * @return EntityManagerInterface
+     */
+    public function getEntityManager(): EntityManagerInterface
+    {
+        return $this->getRepository()->getEntityManager();
+    }
+
+    /**
+     * @return ClassMetadata
+     */
+    public function getMetadata(): ClassMetadata
+    {
+        return $this->getEntityManager()->getClassMetadata($this->getClassName());
+    }
+
+    /**
+     * @param string $name
+     * @return string
+     */
+    public function column(string $name): string
+    {
+        $name = \addcslashes($name, "'");
+        $table = $this->getMetadata()->getTableName();
+
+        return \sprintf("FIELD('%s', '%s', '%s')", $table, $this->getAlias(), $name);
+    }
+
+    /**
+     * @param string $method
+     * @param array $parameters
+     * @return mixed|$this|Query
+     */
+    public function __call(string $method, array $parameters = [])
+    {
+        foreach ($this->scopes as $scope) {
+            if (\method_exists($scope, $method)) {
+                /** @var Query $query */
+                $query = \is_object($scope)
+                    ? clone $scope->$method(...$parameters)
+                    : clone $scope::$method(...$parameters);
+
+                return $this->merge($query);
+            }
+        }
+
+        return $this->__macroableCall($method, $parameters);
     }
 
     /**
@@ -94,7 +199,40 @@ class Query implements \IteratorAggregate
      */
     public function add(CriterionInterface $criterion): self
     {
-        $this->criteria->attach($criterion->withQuery($this));
+        if (! $criterion->isAttached()) {
+            $criterion->attach($this);
+        }
+
+        $this->criteria->push($criterion);
+
+        return $this;
+    }
+
+    /**
+     * Creates a new query using the current set of scopes.
+     *
+     * @return Query
+     */
+    public function create(): Query
+    {
+        $query = static::new()->scope(...$this->getScopes());
+
+        if ($this->repository) {
+            return $query->from($this->repository);
+        }
+
+        return $query;
+    }
+
+    /**
+     * Adds the specified set of scopes (method groups) to the query.
+     *
+     * @param object|string ...$scopes
+     * @return Query|$this
+     */
+    public function scope(...$scopes): self
+    {
+        $this->scopes = \array_merge($this->scopes, $scopes);
 
         return $this;
     }
@@ -111,44 +249,6 @@ class Query implements \IteratorAggregate
     }
 
     /**
-     * @param string $name
-     * @return null
-     */
-    public function __get(string $name)
-    {
-        if (\method_exists($this, $name)) {
-            return $this->$name();
-        }
-
-        return null;
-    }
-
-    /**
-     * @param string $method
-     * @param array $parameters
-     * @return mixed|$this|Query
-     */
-    public function __call(string $method, array $parameters = [])
-    {
-        foreach ($this->scopes as $scope) {
-            if (\method_exists($scope, $method)) {
-                /** @var Query $query */
-                $query = \is_object($scope)
-                    ? clone $scope->$method(...$parameters)
-                    : clone $scope::$method(...$parameters);
-
-                foreach ($query->getCriteria() as $criterion) {
-                    $this->add($criterion);
-                }
-
-                return $this;
-            }
-        }
-
-        return $this->__macroableCall($method, $parameters);
-    }
-
-    /**
      * Returns a set of scopes for the specified query.
      *
      * @return array|ObjectRepository[]
@@ -156,47 +256,6 @@ class Query implements \IteratorAggregate
     public function getScopes(): array
     {
         return $this->scopes;
-    }
-
-    /**
-     * Attaches a child query to the parent without affecting
-     * the set of criteria (selections).
-     *
-     * @param Query $query
-     * @return Query
-     */
-    public function attach(Query $query): Query
-    {
-        $this->repository
-            ? $query->from($this->getRepository())
-            : $query->alias = $this->getAlias();
-
-        return $query;
-    }
-
-    /**
-     * @param string $alias
-     * @return Query|$this|self
-     */
-    public function withAlias(string $alias): Query
-    {
-        $this->alias = $alias;
-
-        foreach ($this->criteria as $criterion) {
-            $criterion->withAlias($alias);
-        }
-
-        return $this;
-    }
-
-    /**
-     * Creates a new query using the current set of scopes.
-     *
-     * @return Query
-     */
-    public function create(): Query
-    {
-        return static::new()->scope(...$this->getScopes());
     }
 
     /**
@@ -208,7 +267,19 @@ class Query implements \IteratorAggregate
     public function merge(Query $query): Query
     {
         foreach ($query->getCriteria() as $criterion) {
-            $criterion->withAlias($query->getAlias());
+            $criterion->attach($this);
+        }
+
+        return $this->attach($query);
+    }
+
+    /**
+     * @param Query $query
+     * @return Query
+     */
+    public function attach(Query $query): Query
+    {
+        foreach ($query->getCriteria() as $criterion) {
             $this->add($criterion);
         }
 
@@ -240,5 +311,34 @@ class Query implements \IteratorAggregate
         foreach ($this->get() as $result) {
             yield $result;
         }
+    }
+
+    /**
+     * @return bool
+     */
+    public function isEmpty(): bool
+    {
+        return $this->criteria->count() === 0;
+    }
+
+    /**
+     * @return void
+     */
+    private function bootIfNotBooted(): void
+    {
+        if (self::$booted === false) {
+            self::$booted = true;
+
+            $bootstrap = new Bootstrap();
+            $bootstrap->register($this->getRepository()->getEntityManager());
+        }
+    }
+
+    /**
+     * @return string
+     */
+    public function dump(): string
+    {
+        return $this->getRepository()->getProcessor()->dump($this);
     }
 }

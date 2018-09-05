@@ -10,7 +10,9 @@ declare(strict_types=1);
 namespace RDS\Hydrogen\Criteria;
 
 use Illuminate\Contracts\Support\Arrayable;
+use RDS\Hydrogen\Criteria\Common\Field;
 use RDS\Hydrogen\Criteria\Where\Operator;
+use RDS\Hydrogen\Query;
 
 /**
  * Class Where
@@ -21,6 +23,11 @@ class Where extends Criterion
      * @var Operator
      */
     private $operator;
+
+    /**
+     * @var Field
+     */
+    private $field;
 
     /**
      * @var mixed
@@ -34,15 +41,17 @@ class Where extends Criterion
 
     /**
      * Where constructor.
+     * @param Query $query
      * @param string $field
      * @param string $operator
      * @param mixed $value
      * @param bool $and
      */
-    public function __construct(string $field, string $operator, $value, bool $and = true)
+    public function __construct(Query $query, string $field, string $operator, $value, bool $and = true)
     {
-        parent::__construct($field);
+        parent::__construct($query);
 
+        $this->field = $this->field($field);
         $this->value = $this->normalizeValue($value);
         $this->operator = $this->normalizeOperator(new Operator($operator), $this->value);
         $this->and = $and;
@@ -98,6 +107,14 @@ class Where extends Criterion
         }
 
         return [$operator, $value];
+    }
+
+    /**
+     * @return Field
+     */
+    public function getField(): Field
+    {
+        return $this->field;
     }
 
     /**

@@ -10,9 +10,9 @@ declare(strict_types=1);
 namespace RDS\Hydrogen\Criteria;
 
 /**
- * Class Having
+ * Class HavingGroup
  */
-class Having extends Where
+class HavingGroup extends WhereGroup
 {
-    
+
 }

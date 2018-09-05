@@ -17,9 +17,9 @@ use RDS\Hydrogen\Criteria\CriterionInterface;
 interface BuilderInterface
 {
     /**
-     * @param mixed $context
+     * @param $context
      * @param CriterionInterface $criterion
-     * @return \Generator
+     * @return iterable|null
      */
-    public function apply($context, CriterionInterface $criterion): \Generator;
+    public function apply($context, CriterionInterface $criterion): ?iterable;
 }

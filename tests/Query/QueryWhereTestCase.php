@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen\Tests\Query;
 
-use RDS\Hydrogen\Criteria\Group;
+use RDS\Hydrogen\Criteria\WhereGroup;
 use RDS\Hydrogen\Criteria\Where;
 use RDS\Hydrogen\Criteria\Where\Operator;
 use RDS\Hydrogen\Query;
@@ -320,16 +320,16 @@ class QueryWhereTestCase extends QueryTestCase
     {
         $alias = null;
 
-        /** @var Group $group */
+        /** @var WhereGroup $group */
         $group = $this->query(function(Query $query) use (&$alias) {
             $alias = $query->getAlias();
 
             return $query->where(function(Query $query) {
-                $query->where('some', 42);
+                $query->where('x', 42);
             });
         });
 
-        $this->assertInstanceOf(Group::class, $group);
+        $this->assertInstanceOf(WhereGroup::class, $group);
         $this->assertEquals($alias, $group->getQuery()->getAlias());
         $this->assertTrue($group->isAnd());
 
@@ -337,7 +337,8 @@ class QueryWhereTestCase extends QueryTestCase
         $where = $group->getQuery()->getCriteria()->current();
 
         $this->assertInstanceOf(Where::class, $where);
-        $this->assertEquals($alias . '.some', $where->getField()->toString());
+        $this->assertTrue($where->getField()->isPrefixed());
+        $this->assertEquals($alias . '.x', $where->getField()->toString($alias));
         $this->assertEquals(Operator::EQ, $where->getOperator()->toString());
         $this->assertEquals(42, $where->getValue());
         $this->assertTrue($where->isAnd());
@@ -350,16 +351,16 @@ class QueryWhereTestCase extends QueryTestCase
     {
         $alias = null;
 
-        /** @var Group $group */
+        /** @var WhereGroup $group */
         $group = $this->query(function(Query $query) use (&$alias) {
             $alias = $query->getAlias();
 
-            return $query->and(function(Query $query) {
-                $query->where('some', 42);
+            return $query->where(function(Query $query) {
+                $query->where('x', 42);
             });
         });
 
-        $this->assertInstanceOf(Group::class, $group);
+        $this->assertInstanceOf(WhereGroup::class, $group);
         $this->assertEquals($alias, $group->getQuery()->getAlias());
         $this->assertTrue($group->isAnd());
 
@@ -367,7 +368,7 @@ class QueryWhereTestCase extends QueryTestCase
         $where = $group->getQuery()->getCriteria()->current();
 
         $this->assertInstanceOf(Where::class, $where);
-        $this->assertEquals($alias . '.some', $where->getField()->toString());
+        $this->assertEquals($alias . '.x', $where->getField()->toString($alias));
         $this->assertEquals(Operator::EQ, $where->getOperator()->toString());
         $this->assertEquals(42, $where->getValue());
         $this->assertTrue($where->isAnd());
@@ -380,16 +381,16 @@ class QueryWhereTestCase extends QueryTestCase
     {
         $alias = null;
 
-        /** @var Group $group */
+        /** @var WhereGroup $group */
         $group = $this->query(function(Query $query) use (&$alias) {
             $alias = $query->getAlias();
 
-            return $query->or(function(Query $query) {
-                $query->where('some', 42);
+            return $query->or->where(function(Query $query) {
+                $query->where('x', 42);
             });
         });
 
-        $this->assertInstanceOf(Group::class, $group);
+        $this->assertInstanceOf(WhereGroup::class, $group);
         $this->assertEquals($alias, $group->getQuery()->getAlias());
         $this->assertFalse($group->isAnd());
 
@@ -397,7 +398,7 @@ class QueryWhereTestCase extends QueryTestCase
         $where = $group->getQuery()->getCriteria()->current();
 
         $this->assertInstanceOf(Where::class, $where);
-        $this->assertEquals($alias . '.some', $where->getField()->toString());
+        $this->assertEquals($alias . '.x', $where->getField()->toString($alias));
         $this->assertEquals(Operator::EQ, $where->getOperator()->toString());
         $this->assertEquals(42, $where->getValue());
         $this->assertTrue($where->isAnd());

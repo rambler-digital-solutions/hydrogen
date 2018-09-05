@@ -9,9 +9,10 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen\Processor;
 
-use Doctrine\ORM\Query as DoctrineQuery;
 use Doctrine\ORM\QueryBuilder;
 use RDS\Hydrogen\Criteria;
+use RDS\Hydrogen\Criteria\Common\Field;
+use RDS\Hydrogen\Criteria\CriterionInterface;
 use RDS\Hydrogen\Query;
 
 /**
@@ -23,161 +24,158 @@ class DatabaseProcessor extends Processor
      * @var string[]|BuilderInterface[]
      */
     protected const CRITERIA_MAPPINGS = [
-        Criteria\Group::class     => DatabaseProcessor\GroupBuilder::class,
-        Criteria\GroupBy::class   => DatabaseProcessor\GroupByBuilder::class,
-        Criteria\Having::class    => DatabaseProcessor\HavingBuilder::class,
-        Criteria\Limit::class     => DatabaseProcessor\LimitBuilder::class,
-        Criteria\Offset::class    => DatabaseProcessor\OffsetBuilder::class,
-        Criteria\OrderBy::class   => DatabaseProcessor\OrderByBuilder::class,
-        Criteria\Relation::class  => DatabaseProcessor\RelationBuilder::class,
-        Criteria\Selection::class => DatabaseProcessor\SelectBuilder::class,
-        Criteria\Where::class     => DatabaseProcessor\WhereBuilder::class,
+        Criteria\GroupBy::class     => DatabaseProcessor\GroupByBuilder::class,
+        Criteria\Having::class      => DatabaseProcessor\HavingBuilder::class,
+        Criteria\HavingGroup::class => DatabaseProcessor\HavingGroupBuilder::class,
+        Criteria\Join::class        => DatabaseProcessor\JoinBuilder::class,
+        Criteria\Limit::class       => DatabaseProcessor\LimitBuilder::class,
+        Criteria\Offset::class      => DatabaseProcessor\OffsetBuilder::class,
+        Criteria\OrderBy::class     => DatabaseProcessor\OrderByBuilder::class,
+        Criteria\Relation::class    => DatabaseProcessor\RelationBuilder::class,
+        Criteria\Selection::class   => DatabaseProcessor\SelectBuilder::class,
+        Criteria\Where::class       => DatabaseProcessor\WhereBuilder::class,
+        Criteria\WhereGroup::class  => DatabaseProcessor\GroupBuilder::class,
     ];
 
     /**
      * @param Query $query
+     * @param string $field
      * @return mixed
      */
-    public function getScalarResult(Query $query)
+    public function getScalarResult(Query $query, string $field)
     {
-        return $this->exec($query, function (DoctrineQuery $query) {
-            return $query->getSingleScalarResult();
-        });
-    }
-
-    /**
-     * @param Query $query
-     * @param \Closure $execute
-     * @return mixed
-     */
-    private function exec(Query $query, \Closure $execute)
-    {
-        $metadata = $this->em->getClassMetadata($this->repository->getClassName());
-
-        $queue = new Queue();
+        $query->from($this->repository);
 
         /** @var QueryBuilder $builder */
-        $builder = $this->fillQueueThrough($queue, $this->toBuilder($query));
+        [$deferred, $builder] = $this->await($this->createQueryBuilder($query));
 
-        $result = $execute($builder->getQuery());
-
-        foreach ($queue->reduce($result, $metadata) as $out) {
-            $children = $this->bypass($out, $query, $this->applicator($builder));
-
-            $this->fillQueueThrough($queue, $children);
-        }
-
-        return $result;
+        return $builder->getQuery()->getSingleScalarResult();
     }
 
     /**
-     * @param Queue $queue
-     * @param \Generator $generator
-     * @return QueryBuilder|mixed
-     */
-    private function fillQueueThrough(Queue $queue, \Generator $generator)
-    {
-        foreach ($generator as $result) {
-            if ($result instanceof \Closure) {
-                $queue->push($result);
-            }
-        }
-
-        return $generator->getReturn();
-    }
-
-    /**
-     * Creates a new QueryBuilder and applies all necessary operations.
-     * Returns a set of pending operations (Deferred) and QueryBuilder.
-     *
      * @param Query $query
-     * @return \Generator|\Closure[]|QueryBuilder
+     * @return string
      */
-    protected function toBuilder(Query $query): \Generator
+    public function dump(Query $query): string
     {
-        yield from $generator = $this->apply($this->em->createQueryBuilder(), $query);
+        $query->from($this->repository);
 
-        return $generator->getReturn();
+        /** @var QueryBuilder $builder */
+        [$deferred, $builder] = $this->await($this->createQueryBuilder($query));
+
+        return $builder->getQuery()->getDQL();
     }
 
     /**
-     * Applies all necessary operations to the QueryBuilder.
-     * Returns a set of pending operations (Deferred) and QueryBuilder.
-     *
+     * @param Query $query
+     * @return \Generator
+     */
+    protected function createQueryBuilder(Query $query): \Generator
+    {
+        $builder = $this->em->createQueryBuilder();
+        $builder->from($query->getRepository()->getClassName(), $query->getAlias());
+        $builder->setCacheable(false);
+
+        return $this->fillQueryBuilder($builder, $query);
+    }
+
+    /**
      * @param QueryBuilder $builder
      * @param Query $query
      * @return \Generator
      */
-    protected function apply(QueryBuilder $builder, Query $query): \Generator
+    protected function fillQueryBuilder(QueryBuilder $builder, Query $query): \Generator
     {
-        // Add an alias and indicate that this
-        // alias is relevant to the entity of a repository.
-        $builder->addSelect($query->getAlias());
-        $builder->from($query->getRepository()->getClassName(), $query->getAlias());
+        /**
+         * @var \Generator $context
+         * @var CriterionInterface $criterion
+         */
+        foreach ($this->bypass($builder, $query) as $criterion => $context) {
+            while ($context->valid()) {
+                [$key, $value] = [$context->key(), $context->current()];
 
-        //
-        //
-        $response = $this->bypass($this->forEach($builder, $query), $query, $this->applicator($builder));
+                switch (true) {
+                    case $key instanceof Field:
+                        $context->send($placeholder = $query->createPlaceholder($key->toString()));
+                        $builder->setParameter($placeholder, $value);
+                        continue 2;
 
-        foreach ($response as $field => $value) {
-            if ($value instanceof \Closure) {
-                yield $value;
-                continue;
+                    case $value instanceof Field:
+                        $context->send($value->toString($criterion->getQueryAlias()));
+                        continue 2;
+
+                    case $value instanceof Query:
+                        $context->send($query->attach($value));
+                        continue 2;
+
+                    default:
+                        $result = (yield $key => $value);
+
+                        if ($result === null) {
+                            $stmt = \is_object($value) ? \get_class($value) : \gettype($value);
+                            $error = 'Unrecognized coroutine\'s return statement: ' . $stmt;
+                            $context->throw(new \InvalidArgumentException($error));
+                        }
+
+                        $context->send($result);
+                }
             }
-
-            $builder->setParameter($field, $value);
         }
 
         return $builder;
     }
 
     /**
-     * A set of coroutine operations valid for the current DatabaseProcessor.
-     *
-     * @param QueryBuilder $builder
-     * @return \Closure
-     */
-    private function applicator(QueryBuilder $builder): \Closure
-    {
-        return function ($response) use ($builder) {
-            // Send the context (the builder) in case the
-            // answer contains an empty value.
-            if ($response === null) {
-                return $builder;
-            }
-
-            // In the case that the response is returned to the Query
-            // instance - we need to fulfill this query and return a response.
-            if ($response instanceof Query) {
-                /** @var DatabaseProcessor $processor */
-                $processor = $response->getRepository()->getProcessor();
-
-                return $processor->getResult($response);
-            }
-
-            return $response;
-        };
-    }
-
-    /**
      * @param Query $query
+     * @param string ...$fields
      * @return iterable
      */
-    public function getResult(Query $query): iterable
+    public function getResult(Query $query, string ...$fields): iterable
     {
-        return $this->exec($query, function (DoctrineQuery $query) {
-            return $query->getResult();
-        });
+        $query->from($this->repository);
+
+        if (! $query->has(Criteria\Selection::class)) {
+            $query->select(':' . $query->getAlias());
+        }
+
+        /**
+         * @var QueryBuilder $builder
+         * @var Queue $deferred
+         */
+        [$deferred, $builder] = $this->await($this->createQueryBuilder($query));
+
+        return \count($fields) > 0
+            ? $this->executeFetchFields($builder, $fields)
+            : $this->executeFetchData($builder, $deferred);
     }
 
     /**
-     * @param Query $query
+     * @param QueryBuilder $builder
+     * @param array $fields
      * @return array
      */
-    public function getArrayResult(Query $query): array
+    private function executeFetchFields(QueryBuilder $builder, array $fields): array
     {
-        return $this->exec($query, function (DoctrineQuery $query) {
-            return $query->getArrayResult();
-        });
+        $result = [];
+
+        foreach ($builder->getQuery()->getArrayResult() as $record) {
+            $result[] = \array_merge(\array_only($record, $fields), \array_only($record[0] ?? [], $fields));
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param QueryBuilder $builder
+     * @param Queue $deferred
+     * @return array
+     */
+    private function executeFetchData(QueryBuilder $builder, Queue $deferred): array
+    {
+        $query = $builder->getQuery();
+
+        $deferred->invoke($result = $query->getResult());
+
+        return $result;
     }
 }

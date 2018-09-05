@@ -34,7 +34,7 @@ trait WhereNullProvider
      */
     public function whereNull(string $field): self
     {
-        return $this->add(new Where($field, Operator::EQ, null, $this->mode()));
+        return $this->add(new Where($this, $field, Operator::EQ, null, $this->mode()));
     }
 
     /**
@@ -52,6 +52,6 @@ trait WhereNullProvider
      */
     public function whereNotNull(string $field): self
     {
-        return $this->add(new Where($field, Operator::NEQ, null, $this->mode()));
+        return $this->add(new Where($this, $field, Operator::NEQ, null, $this->mode()));
     }
 }

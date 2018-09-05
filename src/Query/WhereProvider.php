@@ -9,9 +9,8 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen\Query;
 
-use RDS\Hydrogen\Criteria\Group;
-use RDS\Hydrogen\Criteria\Having;
 use RDS\Hydrogen\Criteria\Where;
+use RDS\Hydrogen\Criteria\WhereGroup;
 use RDS\Hydrogen\Query;
 use RDS\Hydrogen\Query\WhereProvider\WhereBetweenProvider;
 use RDS\Hydrogen\Query\WhereProvider\WhereInProvider;
@@ -20,8 +19,6 @@ use RDS\Hydrogen\Query\WhereProvider\WhereNullProvider;
 
 /**
  * Trait WhereProvider
- * @property-read Query|$this $or
- * @property-read Query|$this $and
  * @mixin Query
  */
 trait WhereProvider
@@ -30,44 +27,6 @@ trait WhereProvider
     use WhereLikeProvider;
     use WhereNullProvider;
     use WhereBetweenProvider;
-
-    /**
-     * - AND if true
-     * - OR if false
-     *
-     * @var bool
-     */
-    protected $conjunction = true;
-
-    /**
-     * @param \Closure|null $group
-     * @return Query|$this|self
-     */
-    public function or(\Closure $group = null): self
-    {
-        $this->conjunction = false;
-
-        if ($group !== null) {
-            $this->add(new Group($this, $group, $this->mode()));
-        }
-
-        return $this;
-    }
-
-    /**
-     * @param \Closure|null $group
-     * @return Query|$this|self
-     */
-    public function and(\Closure $group = null): self
-    {
-        $this->conjunction = true;
-
-        if ($group !== null) {
-            $this->add(new Group($this, $group, $this->mode()));
-        }
-
-        return $this;
-    }
 
     /**
      * @param string|\Closure $field
@@ -91,11 +50,11 @@ trait WhereProvider
         if (\is_string($field)) {
             [$operator, $value] = Where::completeMissingParameters($valueOrOperator, $value);
 
-            return $this->add(new Where($field, $operator, $value, $this->mode()));
+            return $this->add(new Where($this, $field, $operator, $value, $this->mode()));
         }
 
         if ($field instanceof \Closure) {
-            return $this->add(new Group($this, $field, $this->mode()));
+            return $this->add(new WhereGroup($this, $field, $this->mode()));
         }
 
         $error = \vsprintf('Selection set should be a type of string or Closure, but %s given', [
@@ -103,15 +62,5 @@ trait WhereProvider
         ]);
 
         throw new \InvalidArgumentException($error);
-    }
-
-    /**
-     * @return bool
-     */
-    protected function mode(): bool
-    {
-        return \tap($this->conjunction, function () {
-            $this->conjunction = true;
-        });
     }
 }

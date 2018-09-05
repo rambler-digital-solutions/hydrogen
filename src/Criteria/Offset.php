@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace RDS\Hydrogen\Criteria;
 
 use RDS\Hydrogen\Criteria\Common\Field;
+use RDS\Hydrogen\Query;
 
 /**
  * Class Offset
@@ -23,19 +24,14 @@ class Offset extends Criterion
 
     /**
      * Offset constructor.
+     * @param Query $query
      * @param int $offset
      */
-    public function __construct(int $offset)
+    public function __construct(Query $query, int $offset)
     {
-        $this->offset = $offset;
-    }
+        parent::__construct($query);
 
-    /**
-     * @return Field
-     */
-    public function getField(): Field
-    {
-        throw new \LogicException(\sprintf('Criterion %s does not provide the field', \class_basename($this)));
+        $this->offset = $offset;
     }
 
     /**

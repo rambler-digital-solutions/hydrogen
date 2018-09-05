@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen\Criteria;
 
+use RDS\Hydrogen\Criteria\Common\Field;
+use RDS\Hydrogen\Query;
+
 /**
  * Class OrderBy
  */
@@ -23,14 +26,30 @@ class OrderBy extends Criterion
     private $asc;
 
     /**
+     * @var Field
+     */
+    private $field;
+
+    /**
      * OrderBy constructor.
+     * @param Query $query
      * @param string $field
      * @param bool $asc
      */
-    public function __construct(string $field, bool $asc = true)
+    public function __construct(Query $query, string $field, bool $asc = true)
     {
-        parent::__construct($field);
+        parent::__construct($query);
+
+        $this->field = $this->field($field);
         $this->asc = $asc;
+    }
+
+    /**
+     * @return Field
+     */
+    public function getField(): Field
+    {
+        return $this->field;
     }
 
     /**

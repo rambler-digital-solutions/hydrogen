@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace RDS\Hydrogen\Query\WhereProvider;
 
 use RDS\Hydrogen\Criteria\Where\Operator;
-use RDS\Hydrogen\Criteria\Where;
 use RDS\Hydrogen\Query;
 
 /**

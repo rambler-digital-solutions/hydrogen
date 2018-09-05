@@ -12,7 +12,7 @@ namespace RDS\Hydrogen\Processor;
 use Doctrine\Common\Persistence\ObjectRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
-use RDS\Hydrogen\Criteria\Common\Field;
+use Doctrine\ORM\Mapping\ClassMetadata;
 use RDS\Hydrogen\Criteria\CriterionInterface;
 use RDS\Hydrogen\Query;
 
@@ -37,9 +37,9 @@ abstract class Processor implements ProcessorInterface
     protected $em;
 
     /**
-     * @var array|BuilderInterface[]
+     * @var ClassMetadata
      */
-    private $builderInstances = [];
+    protected $meta;
 
     /**
      * DatabaseProcessor constructor.
@@ -48,24 +48,98 @@ abstract class Processor implements ProcessorInterface
      */
     public function __construct(ObjectRepository $repository, EntityManagerInterface $em)
     {
-        $this->em         = $em;
+        $this->em = $em;
+        $this->meta = $em->getClassMetadata($repository->getClassName());
         $this->repository = $repository;
 
         \assert(\count(static::CRITERIA_MAPPINGS));
     }
 
     /**
+     * @return EntityManagerInterface
+     */
+    public function getEntityManager(): EntityManagerInterface
+    {
+        return $this->em;
+    }
+
+    /**
+     * @return EntityRepository|ObjectRepository
+     */
+    public function getRepository(): ObjectRepository
+    {
+        return $this->repository;
+    }
+
+    /**
+     * @return ClassMetadata
+     */
+    public function getMetadata(): ClassMetadata
+    {
+        return $this->meta;
+    }
+
+    /**
+     * @param mixed $context
+     * @param Query $query
+     * @return \Generator
+     */
+    protected function bypass($context, Query $query): \Generator
+    {
+        foreach ($this->builders($query) as $criterion => $builder) {
+            $result = $builder->apply($context, $criterion);
+
+            if (\is_iterable($result)) {
+                yield $criterion => $result;
+            }
+        }
+    }
+
+    /**
+     * @param \Generator $generator
+     * @return array
+     */
+    protected function await(\Generator $generator): array
+    {
+        $queue = new Queue();
+
+        while ($generator->valid()) {
+            $value = $generator->current();
+
+            if ($value instanceof \Closure) {
+                $queue->push($value);
+            }
+
+            $generator->next();
+        }
+
+        return [$queue, $generator->getReturn()];
+    }
+
+    /**
+     * @param Query $query
+     * @return \Generator|BuilderInterface[]
+     */
+    private function builders(Query $query): \Generator
+    {
+        $context = [];
+
+        foreach ($query->getCriteria() as $criterion) {
+            $key = \get_class($criterion);
+
+            yield $criterion => $context[$key] ?? $context[$key] = $this->getBuilder($query, $criterion);
+        }
+
+        unset($context);
+    }
+
+    /**
+     * @param Query $query
      * @param CriterionInterface $criterion
      * @return BuilderInterface
      */
-    protected function getBuilder(CriterionInterface $criterion): BuilderInterface
+    protected function getBuilder(Query $query, CriterionInterface $criterion): BuilderInterface
     {
-        $key = \get_class($criterion);
-
-        if (isset($this->builderInstances[$key])) {
-            return $this->builderInstances[$key];
-        }
-
         $processor = static::CRITERIA_MAPPINGS[\get_class($criterion)] ?? null;
 
         if ($processor === null) {
@@ -77,101 +151,21 @@ abstract class Processor implements ProcessorInterface
             throw new \InvalidArgumentException($error);
         }
 
-        return $this->builderInstances[$key] = new $processor($this);
+        return new $processor($query, $this);
     }
 
     /**
-     * @param mixed $context
-     * @param Query $query
-     * @return \Generator
+     * @param string $entity
+     * @return ProcessorInterface
      */
-    protected function forEach($context, Query $query): \Generator
+    public function getProcessor(string $entity): ProcessorInterface
     {
-        foreach ($query->getCriteria() as $criterion) {
-            $builder = $this->getBuilder($criterion);
+        $repository = $this->em->getRepository($entity);
 
-            yield from $builder->apply($context, $criterion);
+        if (\method_exists($repository, 'getProcessor')) {
+            return $repository->getProcessor();
         }
-    }
 
-    /**
-     * @param \Generator $generator
-     * @param Query $query
-     * @param \Closure $each
-     * @return \Generator
-     */
-    protected function bypass(\Generator $generator, Query $query, \Closure $each): \Generator
-    {
-        $this->builderInstances = [];
-
-        while ($generator->valid()) {
-            [$key, $value] = [$generator->key(), $generator->current()];
-
-            yield from $result = $this->yieldThrough($key, $value, $query, $each);
-
-            $response = $result->getReturn();
-
-            \assert($response !== null);
-
-            $generator->send($response);
-        }
-    }
-
-    /**
-     * @param mixed $key
-     * @param mixed $value
-     * @param Query $query
-     * @param \Closure $each
-     * @return \Generator
-     */
-    private function yieldThrough($key, $value, Query $query, \Closure $each): \Generator
-    {
-        switch (true) {
-            case $value instanceof Field:
-                return $this->applyField($query, $value);
-                break;
-
-            case $key instanceof Field:
-                yield from $co = $this->applyFieldWithValue($query, $key, $value);
-                return $co->getReturn();
-                break;
-
-            case $value instanceof \Closure:
-                yield $value;
-                return $value;
-
-            case $value instanceof Query:
-                $query->merge($value);
-                return $query;
-
-            default:
-                return $each($value, $key);
-        }
-    }
-
-    /**
-     * @param Query $query
-     * @param Field $field
-     * @return string
-     */
-    private function applyField(Query $query, Field $field): string
-    {
-        return $field->withQuery($query)->toString();
-    }
-
-    /**
-     * @param Query $query
-     * @param Field $field
-     * @param $value
-     * @return \Generator
-     * @throws \Exception
-     */
-    private function applyFieldWithValue(Query $query, Field $field, $value): \Generator
-    {
-        $placeholder = $query->placeholder($field->getName());
-
-        yield $placeholder => $value;
-
-        return $placeholder;
+        return new static($repository, $this->em);
     }
 }

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen;
 
+use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityRepository;
 use RDS\Hydrogen\Processor\DatabaseProcessor;
 use RDS\Hydrogen\Processor\ProcessorInterface;
@@ -37,6 +38,14 @@ trait Hydrogen
     }
 
     /**
+     * @return EntityManager
+     */
+    public function getEntityManager(): EntityManager
+    {
+        return parent::getEntityManager();
+    }
+
+    /**
      * @return Query|$this
      * @throws \LogicException
      */
@@ -62,6 +71,6 @@ trait Hydrogen
                 return $this->query();
         }
 
-        return null;
+
     }
 }

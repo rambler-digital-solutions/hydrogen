@@ -22,10 +22,10 @@ class FieldTestCase extends TestCase
      */
     public function testStar(): void
     {
-        $field = Field::new('COUNT(*) AS example')->withAlias('alias');
+        $field = Field::new('COUNT(*) AS example');
 
-        $this->assertEquals('*', $field->getName());
-        $this->assertEquals('COUNT(*) AS example', $field->toString());
+        $this->assertEquals('', $field->getName());
+        $this->assertEquals('COUNT(*) AS example', $field->toString('alias'));
         $this->assertFalse($field->isPrefixed());
     }
 
@@ -34,98 +34,98 @@ class FieldTestCase extends TestCase
      */
     public function testFieldExtraction(): void
     {
-        $field = Field::new('example')->withAlias('alias');
+        $field = Field::new('example');
 
         $this->assertEquals('example', $field->getName());
-        $this->assertEquals('alias.example', $field->toString());
+        $this->assertEquals('alias.example', $field->toString('alias'));
         $this->assertTrue($field->isPrefixed());
 
         // ----
 
-        $field = Field::new('example.relation')->withAlias('alias');
+        $field = Field::new('example.relation');
 
-        $this->assertEquals('example', $field->getName());
-        $this->assertEquals('alias.example.relation', $field->toString());
+        $this->assertEquals('example.relation', $field->getName());
+        $this->assertEquals('alias.example.relation', $field->toString('alias'));
         $this->assertTrue($field->isPrefixed());
 
         // ----
 
-        $field = Field::new('example as some')->withAlias('alias');
+        $field = Field::new('example as some');
 
         $this->assertEquals('example', $field->getName());
-        $this->assertEquals('alias.example as some', $field->toString());
+        $this->assertEquals('alias.example as some', $field->toString('alias'));
         $this->assertTrue($field->isPrefixed());
 
         // ----
 
-        $field = Field::new('example.relation as some')->withAlias('alias');
+        $field = Field::new('example.relation as some');
 
-        $this->assertEquals('example', $field->getName());
-        $this->assertEquals('alias.example.relation as some', $field->toString());
+        $this->assertEquals('example.relation', $field->getName());
+        $this->assertEquals('alias.example.relation as some', $field->toString('alias'));
         $this->assertTrue($field->isPrefixed());
 
         // ----
 
-        $field = Field::new('FN(example) as some')->withAlias('alias');
+        $field = Field::new('FN(example) as some');
 
         $this->assertEquals('example', $field->getName());
-        $this->assertEquals('FN(alias.example) as some', $field->toString());
+        $this->assertEquals('FN(alias.example) as some', $field->toString('alias'));
         $this->assertTrue($field->isPrefixed());
 
         // ----
 
-        $field = Field::new('FN(example.relation) as some')->withAlias('alias');
+        $field = Field::new('FN(example.relation) as some');
 
-        $this->assertEquals('example', $field->getName());
-        $this->assertEquals('FN(alias.example.relation) as some', $field->toString());
+        $this->assertEquals('example.relation', $field->getName());
+        $this->assertEquals('FN(alias.example.relation) as some', $field->toString('alias'));
         $this->assertTrue($field->isPrefixed());
 
         // ----
 
-        $field = Field::new(':example')->withAlias('alias');
+        $field = Field::new(':example');
 
         $this->assertEquals('example', $field->getName());
-        $this->assertEquals('example', $field->toString());
+        $this->assertEquals('example', $field->toString('alias'));
         $this->assertFalse($field->isPrefixed());
 
         // ----
 
-        $field = Field::new(':example.relation')->withAlias('alias');
+        $field = Field::new(':example.relation');
 
-        $this->assertEquals('example', $field->getName());
-        $this->assertEquals('example.relation', $field->toString());
+        $this->assertEquals('example.relation', $field->getName());
+        $this->assertEquals('example.relation', $field->toString('alias'));
         $this->assertFalse($field->isPrefixed());
 
         // ----
 
-        $field = Field::new(':example as some')->withAlias('alias');
+        $field = Field::new(':example as some');
 
         $this->assertEquals('example', $field->getName());
-        $this->assertEquals('example as some', $field->toString());
+        $this->assertEquals('example as some', $field->toString('alias'));
         $this->assertFalse($field->isPrefixed());
 
         // ----
 
-        $field = Field::new(':example.relation as some')->withAlias('alias');
+        $field = Field::new(':example.relation as some');
 
-        $this->assertEquals('example', $field->getName());
-        $this->assertEquals('example.relation as some', $field->toString());
+        $this->assertEquals('example.relation', $field->getName());
+        $this->assertEquals('example.relation as some', $field->toString('alias'));
         $this->assertFalse($field->isPrefixed());
 
         // ----
 
-        $field = Field::new('FN(:example) as some')->withAlias('alias');
+        $field = Field::new('FN(:example) as some');
 
         $this->assertEquals('example', $field->getName());
-        $this->assertEquals('FN(example) as some', $field->toString());
+        $this->assertEquals('FN(example) as some', $field->toString('alias'));
         $this->assertFalse($field->isPrefixed());
 
         // ----
 
-        $field = Field::new('FN(:example.relation) as some')->withAlias('alias');
+        $field = Field::new('FN(:example.relation) as some');
 
-        $this->assertEquals('example', $field->getName());
-        $this->assertEquals('FN(example.relation) as some', $field->toString());
+        $this->assertEquals('example.relation', $field->getName());
+        $this->assertEquals('FN(example.relation) as some', $field->toString('alias'));
         $this->assertFalse($field->isPrefixed());
     }
 
@@ -174,11 +174,10 @@ class FieldTestCase extends TestCase
      */
     public function testAdvancedAliasedField(): void
     {
-        $field = Field::new('example AS some')
-            ->withAlias('alias');
+        $field = Field::new('example AS some');
 
         $this->assertEquals('example', $field->getName());
-        $this->assertEquals('alias.example AS some', $field->toString());
+        $this->assertEquals('alias.example AS some', $field->toString('alias'));
         $this->assertTrue($field->isPrefixed());
     }
 
@@ -188,11 +187,10 @@ class FieldTestCase extends TestCase
      */
     public function testAliasedField(): void
     {
-        $field = Field::new('example')
-            ->withAlias('alias');
+        $field = Field::new('example');
 
         $this->assertEquals('example', $field->getName());
-        $this->assertEquals('alias.example', $field->toString());
+        $this->assertEquals('alias.example', $field->toString('alias'));
         $this->assertTrue($field->isPrefixed());
     }
 
@@ -202,11 +200,10 @@ class FieldTestCase extends TestCase
      */
     public function testAliasedFnField(): void
     {
-        $field = Field::new('FUNCTION(FN(example)) AS example')
-            ->withAlias('alias');
+        $field = Field::new('FUNCTION(FN(example)) AS example');
 
         $this->assertEquals('example', $field->getName());
-        $this->assertEquals('FUNCTION(FN(alias.example)) AS example', $field->toString());
+        $this->assertEquals('FUNCTION(FN(alias.example)) AS example', $field->toString('alias'));
         $this->assertTrue($field->isPrefixed());
     }
 
@@ -216,11 +213,10 @@ class FieldTestCase extends TestCase
      */
     public function testForceNonAliasedField(): void
     {
-        $field = Field::new(':example')
-            ->withAlias('alias');
+        $field = Field::new(':example');
 
         $this->assertEquals('example', $field->getName());
-        $this->assertEquals('example', $field->toString());
+        $this->assertEquals('example', $field->toString('alias'));
         $this->assertFalse($field->isPrefixed());
     }
 
@@ -230,11 +226,10 @@ class FieldTestCase extends TestCase
      */
     public function testForceNonAliasedFnField(): void
     {
-        $field = Field::new('FUNCTION(FN(:example)) AS example')
-            ->withAlias('alias');
+        $field = Field::new('FUNCTION(FN(:example)) AS example');
 
         $this->assertEquals('example', $field->getName());
-        $this->assertEquals('FUNCTION(FN(example)) AS example', $field->toString());
+        $this->assertEquals('FUNCTION(FN(example)) AS example', $field->toString('alias'));
         $this->assertFalse($field->isPrefixed());
     }
 
@@ -244,12 +239,10 @@ class FieldTestCase extends TestCase
      */
     public function testChunksField(): void
     {
-        $field = Field::new('some.any.ololo')
-            ->withAlias('alias');
+        $field = Field::new('a.b.c');
+        $chunks = \array_map('\\strval', \iterator_to_array($field->getIterator(), false));
 
-        $this->assertArraySubset(['some', 'any', 'ololo'], $field->getChunks());
-        $this->assertCount(3, $field->getChunks());
-        $this->assertEquals('alias', $field->getAlias());
+        $this->assertArraySubset(['a', 'b', 'c'], $chunks);
         $this->assertTrue($field->isPrefixed());
     }
 
@@ -259,12 +252,14 @@ class FieldTestCase extends TestCase
      */
     public function testChunksFnField(): void
     {
-        $field = Field::new('FUNCTION(FN(some.any.ololo)) AS example')
-            ->withAlias('alias');
+        $field = Field::new('FUNCTION(FN(a.b.c)) AS example');
 
-        $this->assertArraySubset(['some', 'any', 'ololo'], $field->getChunks());
-        $this->assertCount(3, $field->getChunks());
-        $this->assertEquals('alias', $field->getAlias());
+        $chunks = [];
+        foreach ($field->getIterator() as $chunk) {
+            $chunks[] = $chunk->getName();
+        }
+
+        $this->assertArraySubset(['a', 'b', 'c'], $chunks);
         $this->assertTrue($field->isPrefixed());
     }
 }

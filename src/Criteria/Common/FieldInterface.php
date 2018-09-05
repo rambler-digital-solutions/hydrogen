@@ -20,22 +20,13 @@ interface FieldInterface
     public function getName(): string;
 
     /**
+     * @param string|null $alias
      * @return string
      */
-    public function toString(): string;
-
-    /**
-     * @return null|string
-     */
-    public function getAlias(): ?string;
+    public function toString(string $alias = null): string;
 
     /**
      * @return bool
      */
     public function isPrefixed(): bool;
-
-    /**
-     * @return iterable|string[]
-     */
-    public function getChunks(): iterable;
 }

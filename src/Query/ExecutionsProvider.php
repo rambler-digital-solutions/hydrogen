@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen\Query;
 
+use Illuminate\Support\Arr;
 use RDS\Hydrogen\Query;
 use RDS\Hydrogen\Collection\Collection;
 
@@ -26,20 +27,21 @@ trait ExecutionsProvider
     {
         $processor = $this->getRepository()->getProcessor();
 
-        if (\count($fields) === 0) {
-            return $processor->getResult($this);
-        }
+        return $processor->getResult($this, ...$fields);
+    }
 
-        return Collection::wrap($processor->getArrayResult($this))
-            ->map(function ($item) use ($fields) {
-                $result = [];
-
-                foreach ($fields as $field) {
-                    $result[$field] = \data_get($item, $field);
-                }
-
-                return $result;
-            })
+    /**
+     * Get the values of a given key.
+     *
+     * @param string|array $value
+     * @param string|null $key
+     * @return Collection|iterable
+     */
+    public function pluck($value, $key = null): array
+    {
+        return $this
+            ->collect(...\array_filter([$value, $key]))
+            ->pluck($value, $key)
             ->toArray();
     }
 
@@ -51,7 +53,9 @@ trait ExecutionsProvider
      */
     public function scalar(string $field, string $typeOf = null)
     {
-        $result = \data_get($this->first($field), $field);
+        $processor = $this->getRepository()->getProcessor();
+
+        $result = $processor->getScalarResult($this, $field);
 
         if ($typeOf !== null) {
             return $this->cast($result, $typeOf);
@@ -63,7 +67,7 @@ trait ExecutionsProvider
     /**
      * @param mixed $result
      * @param string $typeOf
-     * @return array|\Closure|object
+     * @return array|\Closure|object|mixed
      */
     private function cast($result, string $typeOf)
     {
@@ -81,6 +85,9 @@ trait ExecutionsProvider
             case 'array':
             case 'iterable':
                 return (array)$result;
+
+            case 'string':
+                return (string)$result;
         }
 
         $function = $typeOf . 'val';
@@ -97,9 +104,14 @@ trait ExecutionsProvider
      * @return int
      * @throws \LogicException
      */
-    public function count(?string $field = 'id'): int
+    public function count(string $field = null): int
     {
-        return $this->select('COUNT(' . $field . ') AS __count')
+        if ($field === null) {
+            $field = \array_first($this->getMetadata()->identifier);
+        }
+
+        return $this
+            ->select('COUNT(' . $field . ') AS __count')
             ->scalar('__count', 'int');
     }
 
@@ -110,7 +122,8 @@ trait ExecutionsProvider
      */
     public function sum(string $field = null): int
     {
-        return $this->select('SUM(' . $field . ') AS __sum')
+        return $this
+            ->select('SUM(' . $field . ') AS __sum')
             ->scalar('__sum', 'int');
     }
 
@@ -121,7 +134,8 @@ trait ExecutionsProvider
      */
     public function avg(string $field = null): int
     {
-        return $this->select('AVG(' . $field . ') AS __avg')
+        return $this
+            ->select('AVG(' . $field . ') AS __avg')
             ->scalar('__avg', 'int');
     }
 
@@ -132,7 +146,8 @@ trait ExecutionsProvider
      */
     public function max(string $field = null): int
     {
-        return $this->select('MAX(' . $field . ') AS __max')
+        return $this
+            ->select('MAX(' . $field . ') AS __max')
             ->scalar('__max', 'int');
     }
 
@@ -143,7 +158,8 @@ trait ExecutionsProvider
      */
     public function min(string $field = null): int
     {
-        return $this->select('MIN(' . $field . ') AS __min')
+        return $this
+            ->select('MIN(' . $field . ') AS __min')
             ->scalar('__min', 'int');
     }
 

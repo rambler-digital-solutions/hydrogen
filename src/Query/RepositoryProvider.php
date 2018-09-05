@@ -44,6 +44,8 @@ trait RepositoryProvider
             throw new \LogicException($error);
         }
 
+        $this->bootIfNotBooted();
+
         return $this->repository;
     }
 }

@@ -11,24 +11,25 @@ namespace RDS\Hydrogen\Processor\DatabaseProcessor;
 
 use Doctrine\ORM\Query\Expr\Andx;
 use Doctrine\ORM\QueryBuilder;
-use phpDocumentor\Reflection\Types\Static_;
 use RDS\Hydrogen\Criteria\Criterion;
 use RDS\Hydrogen\Criteria\CriterionInterface;
 use RDS\Hydrogen\Criteria\WhereGroup;
+use RDS\Hydrogen\Criteria\Having;
 use RDS\Hydrogen\Criteria\Where;
 use RDS\Hydrogen\Processor\DatabaseProcessor\Common\Expression;
 
 /**
- * Class GroupBuilder
+ * Class HavingGroupBuilder
  */
-class GroupBuilder extends Builder
+class HavingGroupBuilder extends GroupBuilder
 {
     /**
      * @var string[]|Criterion[]
      */
     protected const ALLOWED_INNER_TYPES = [
         Where::class      => 'applyWhere',
-        WhereGroup::class => 'applyGroup'
+        Having::class     => 'applyWhere',
+        WhereGroup::class => 'applyGroup',
     ];
 
     /**
@@ -44,20 +45,7 @@ class GroupBuilder extends Builder
             yield from $fn($builder, $expression, $criterion);
         }
 
-        return $group->isAnd()
-            ? $builder->andWhere($expression)
-            : $builder->orWhere($expression);
-    }
-
-    /**
-     * @param QueryBuilder $builder
-     * @param Andx $context
-     * @param WhereGroup $group
-     * @return \Generator
-     */
-    protected function applyGroup(QueryBuilder $builder, Andx $context, WhereGroup $group): \Generator
-    {
-        return $this->apply($builder, $group);
+        return $group->isAnd() ? $builder->andHaving($expression) : $builder->orHaving($expression);
     }
 
     /**
@@ -66,7 +54,7 @@ class GroupBuilder extends Builder
      * @param Where $where
      * @return \Generator
      */
-    protected function applyWhere(QueryBuilder $builder, Andx $context, Where $where): \Generator
+    final protected function applyWhere(QueryBuilder $builder, Andx $context, Where $where): \Generator
     {
         $expression = new Expression($builder, $where->getOperator(), $where->getValue());
         yield from $result = $expression->create($where->getField());
@@ -74,28 +62,7 @@ class GroupBuilder extends Builder
         if ($where->isAnd()) {
             $context->add($result->getReturn());
         } else {
-            $builder->orWhere($result->getReturn());
-        }
-    }
-
-    /**
-     * @param WhereGroup $group
-     * @return iterable|callable[]
-     */
-    protected function getInnerSelections(WhereGroup $group): iterable
-    {
-        $query = $group->getQuery();
-
-        foreach ($query->getCriteria() as $criterion) {
-            foreach (static::ALLOWED_INNER_TYPES as $typeOf => $fn) {
-                if ($criterion instanceof $typeOf) {
-                    yield $criterion => [$this, $fn];
-                    continue 2;
-                }
-            }
-
-            $error = 'Groups not allowed for %s criterion';
-            throw new \LogicException(\sprintf($error, \get_class($criterion)));
+            $builder->orHaving($result->getReturn());
         }
     }
 }

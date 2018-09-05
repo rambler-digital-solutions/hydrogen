@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace RDS\Hydrogen\Criteria;
 
 use RDS\Hydrogen\Criteria\Common\Field;
+use RDS\Hydrogen\Query;
 
 /**
  * Class Limit
@@ -23,19 +24,14 @@ class Limit extends Criterion
 
     /**
      * Limit constructor.
+     * @param Query $query
      * @param int $limit
      */
-    public function __construct(int $limit)
+    public function __construct(Query $query, int $limit)
     {
-        $this->limit = $limit;
-    }
+        parent::__construct($query);
 
-    /**
-     * @return Field
-     */
-    public function getField(): Field
-    {
-        throw new \LogicException(\sprintf('Criterion %s does not provide the field', \class_basename($this)));
+        $this->limit = $limit;
     }
 
     /**

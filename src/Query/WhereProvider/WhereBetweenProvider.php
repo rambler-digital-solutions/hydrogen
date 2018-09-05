@@ -38,7 +38,7 @@ trait WhereBetweenProvider
      */
     public function whereBetween(string $field, $from, $to): self
     {
-        return $this->add(new Where($field, Operator::BTW, [$from, $to], $this->mode()));
+        return $this->where($field, Operator::BTW, [$from, $to]);
     }
 
     /**
@@ -60,6 +60,6 @@ trait WhereBetweenProvider
      */
     public function whereNotBetween(string $field, $from, $to): self
     {
-        return $this->add(new Where($field, Operator::NOT_BTW, [$from, $to], $this->mode()));
+        return $this->where($field, Operator::NOT_BTW, [$from, $to]);
     }
 }

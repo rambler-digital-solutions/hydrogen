@@ -22,18 +22,18 @@ use RDS\Hydrogen\Tests\Application\Mock\Repository\UsersRepository;
 class UsersTestCase extends QueryTestCase
 {
     /**
-     * @throws \LogicException
+     * @throws \PHPUnit\Framework\Exception
      */
     public function testSimpleRelations(): void
     {
         $queries = $this->log(function () {
             /** @var User[] $users */
             $users = $this->getRepository()->query
-                ->with('messages')
+                ->leftJoin('messages')
                 ->get();
 
             foreach ($users as $user) {
-                $this->assertGreaterThan(1, \count($user->messages));
+                $this->assertGreaterThan(1, \count($user->messages->toArray()));
             }
         });
 
@@ -57,11 +57,11 @@ class UsersTestCase extends QueryTestCase
      */
     protected function getMocks(Generator $faker): \Generator
     {
-        for ($i = \random_int(5, 20); $i--;) {
+        for ($i = \random_int(6, 10); $i--;) {
             $user       = new User();
             $user->name = $faker->name;
 
-            for ($j = \random_int(10, 15); $j--;) {
+            for ($j = \random_int(6, 10); $j--;) {
                 $message          = new Message();
                 $message->content = $faker->text(200);
                 $message->author  = $user;

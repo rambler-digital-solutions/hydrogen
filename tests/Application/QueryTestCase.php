@@ -59,6 +59,8 @@ abstract class QueryTestCase extends DatabaseTestCase
 
         \assert($this->count > 0);
         \assert($this->entity !== null);
+
+        $this->em->clear();
     }
 
     /**

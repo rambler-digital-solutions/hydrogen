@@ -21,12 +21,12 @@ class LimitBuilder extends Builder
     /**
      * @param QueryBuilder $builder
      * @param CriterionInterface|Limit $limit
-     * @return \Generator
+     * @return iterable|null
      */
-    public function apply($builder, CriterionInterface $limit): \Generator
+    public function apply($builder, CriterionInterface $limit): ?iterable
     {
         $builder->setMaxResults($limit->getLimit());
 
-        yield from $this->nothing();
+        return null;
     }
 }

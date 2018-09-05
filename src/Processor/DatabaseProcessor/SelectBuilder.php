@@ -21,16 +21,17 @@ class SelectBuilder extends Builder
     /**
      * @param QueryBuilder $builder
      * @param CriterionInterface|Selection $select
-     * @return \Generator
+     * @return iterable|null
      */
-    public function apply($builder, CriterionInterface $select): \Generator
+    public function apply($builder, CriterionInterface $select): ?iterable
     {
-        $field = yield $select->getField();
+        /** @var string $selection */
+        $selection = yield $select->getField();
 
         if ($select->hasAlias()) {
-            return $builder->addSelect(\sprintf('%s AS %s', $field, $select->getAlias()));
+            $selection .= ' AS ' . $select->getAlias();
         }
 
-        return $builder->addSelect($field);
+        $builder->addSelect($selection);
     }
 }

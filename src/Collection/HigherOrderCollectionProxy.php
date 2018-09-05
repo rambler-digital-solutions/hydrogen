@@ -72,7 +72,7 @@ class HigherOrderCollectionProxy
                 return $snake($item);
             }
 
-            return null;
+
         });
     }
 
@@ -105,7 +105,7 @@ class HigherOrderCollectionProxy
                 return $snake(...$this->pack($item, $arguments));
             }
 
-            return null;
+
         });
     }
 

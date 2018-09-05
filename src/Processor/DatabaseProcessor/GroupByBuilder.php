@@ -23,7 +23,7 @@ class GroupByBuilder extends Builder
      * @param CriterionInterface|GroupBy $groupBy
      * @return \Generator
      */
-    public function apply($builder, CriterionInterface $groupBy): \Generator
+    public function apply($builder, CriterionInterface $groupBy): ?iterable
     {
         $builder->addGroupBy(yield $groupBy->getField());
     }

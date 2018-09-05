@@ -9,19 +9,13 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen\Criteria\Common;
 
-use Illuminate\Support\Str;
-use RDS\Hydrogen\Query;
+use Doctrine\ORM\Query\Lexer;
 
 /**
  * Class Field
  */
-class Field implements FieldInterface
+class Field implements FieldInterface, \IteratorAggregate
 {
-    /**
-     * @var string
-     */
-    private const EXTRACTION_PATTERN = '/^(?:.*?\(([\w\.\:\*]+?)\).*?|([\w\.\:\*]+)).*?$/su';
-
     /**
      * Inherit value delimiter
      */
@@ -33,29 +27,19 @@ class Field implements FieldInterface
     public const NON_ALIASED_PREFIX = ':';
 
     /**
-     * @var string
+     * @var array|string[]
      */
-    private $field;
-
-    /**
-     * @var string
-     */
-    private $wrapper;
-
-    /**
-     * @var string
-     */
-    private $alias;
-
-    /**
-     * @var Query
-     */
-    private $query;
+    private $chunks = [];
 
     /**
      * @var bool
      */
-    private $prefixed;
+    private $prefixed = true;
+
+    /**
+     * @var string
+     */
+    private $wrapper = '';
 
     /**
      * Field constructor.
@@ -65,12 +49,95 @@ class Field implements FieldInterface
     {
         \assert(\strlen(\trim($query)) > 0);
 
-        [$this->wrapper, $this->field, $this->prefixed] = $this->analyze(\trim($query));
+        $this->analyseAndFill($query);
+
+        if (\count($this->chunks) === 0) {
+            $this->prefixed = false;
+        }
     }
 
     /**
      * @param string $query
-     * @return Field|static
+     * @return void
+     */
+    private function analyseAndFill(string $query): void
+    {
+        $analyzed = $this->analyse(new Lexer($query));
+        $haystack = 0;
+
+        foreach ($analyzed as $chunk) {
+            $this->chunks[] = \ltrim($chunk, ':');
+            $haystack += \strlen($chunk) + 1;
+        }
+
+        $before = \substr($query, 0, $analyzed->getReturn());
+        $after  = \substr($query, $analyzed->getReturn() + \max(0, $haystack - 1));
+
+        $this->wrapper = $before . '%s' . $after;
+    }
+
+    /**
+     * @param Lexer $lexer
+     * @return \Generator|string[]
+     */
+    private function analyse(Lexer $lexer): \Generator
+    {
+        [$offset, $keep] = [null, true];
+
+        foreach ($this->lex($lexer) as $token => $lookahead) {
+            switch ($token['type']) {
+                case Lexer::T_OPEN_PARENTHESIS:
+                    $keep = true;
+                    break;
+
+                case Lexer::T_INPUT_PARAMETER:
+                    $this->prefixed = false;
+
+                case Lexer::T_IDENTIFIER:
+                    if ($lookahead['type'] === Lexer::T_OPEN_PARENTHESIS) {
+                        $keep = false;
+                    }
+
+                    if ($keep) {
+                        if ($offset === null) {
+                            $offset = $token['position'];
+                        }
+                        $keep = false;
+                        yield $token['value'];
+                    }
+
+                    break;
+
+                case Lexer::T_DOT:
+                    $keep = true;
+                    break;
+
+                default:
+                    $keep = false;
+            }
+        }
+
+        return (int)$offset;
+    }
+
+    /**
+     * @param Lexer $lexer
+     * @return \Generator
+     */
+    private function lex(Lexer $lexer): \Generator
+    {
+        while ($lexer->moveNext()) {
+            if ($lexer->token) {
+                yield $lexer->token => $lexer->lookahead;
+            }
+        }
+
+        yield $lexer->token => $lexer->lookahead ?? ['type' => null, 'value' => null];
+    }
+
+    /**
+     * @param string $query
+     * @return Field
      */
     public static function new(string $query): self
     {
@@ -78,11 +145,24 @@ class Field implements FieldInterface
     }
 
     /**
-     * @return iterable|string[]
+     * @return string
      */
-    public function getChunks(): iterable
+    public function getName(): string
     {
-        return \explode(self::DEEP_DELIMITER, $this->field);
+        return \implode(self::DEEP_DELIMITER, $this->chunks);
+    }
+
+    /**
+     * @param string|null $alias
+     * @return string
+     */
+    public function toString(string $alias = null): string
+    {
+        $value = $alias && $this->prefixed
+            ? \implode('.', [$alias, $this->getName()])
+            : $this->getName();
+
+        return \sprintf($this->wrapper, $value);
     }
 
     /**
@@ -94,79 +174,6 @@ class Field implements FieldInterface
     }
 
     /**
-     * @param string $query
-     * @return array
-     */
-    private function analyze(string $query): array
-    {
-        $field = null;
-
-        $replacement = function (array $matches) use (&$field) {
-            $field = $matches[1] ?: ($matches[2] ?? null);
-
-            return \str_replace_first($field, '%s', $matches[0]);
-        };
-
-        $wrapper = \preg_replace_callback(self::EXTRACTION_PATTERN, $replacement, $query);
-
-        if ($field === null || $wrapper === null) {
-            $error = \sprintf('Can not extract field name from %s expression', $query);
-            throw new \LogicException($error);
-        }
-
-        return \array_merge([$wrapper], $this->analyzePrefix((string)$field));
-    }
-
-    /**
-     * @param string $field
-     * @return array
-     */
-    private function analyzePrefix(string $field): array
-    {
-        $prefixed = true;
-
-        if ($field === '*') {
-            return [$field, false];
-        }
-
-        if (Str::startsWith($field, self::NON_ALIASED_PREFIX)) {
-            return [\substr($field, 1), false];
-        }
-
-        return [$field, $prefixed];
-    }
-
-    /**
-     * @return string
-     */
-    public function getName(): string
-    {
-        return \array_first($this->getChunks());
-    }
-
-    /**
-     * @return string
-     */
-    private function getFieldWithPrefix(): string
-    {
-        if ($this->prefixed) {
-            $chunks = \array_filter([$this->getAlias(), $this->field]);
-
-            return \implode(self::DEEP_DELIMITER, $chunks);
-        }
-
-        return $this->field;
-    }
-
-    /**
-     * @return string
-     */
-    public function toString(): string
-    {
-        return \sprintf($this->wrapper, $this->getFieldWithPrefix());
-    }
-
-    /**
      * @return string
      */
     public function __toString(): string
@@ -175,40 +182,17 @@ class Field implements FieldInterface
     }
 
     /**
-     * @return null|string
+     * @return iterable|Field[]
      */
-    public function getAlias(): ?string
+    public function getIterator(): iterable
     {
-        if ($this->alias) {
-            return $this->alias;
+        $lastOne = \count($this->chunks) - 1;
+
+        foreach ($this->chunks as $i => $chunk) {
+            $clone = clone $this;
+            $clone->chunks = [$chunk];
+
+            yield $lastOne === $i => $clone;
         }
-
-        if ($this->query) {
-            return $this->query->getAlias();
-        }
-
-        return null;
-    }
-
-    /**
-     * @param Query $query
-     * @return Field|$this
-     */
-    public function withQuery(Query $query): self
-    {
-        $this->query = $query;
-
-        return $this;
-    }
-
-    /**
-     * @param string $alias
-     * @return Field
-     */
-    public function withAlias(string $alias): self
-    {
-        $this->alias = $alias;
-
-        return $this;
     }
 }

@@ -23,6 +23,7 @@ class Collection extends ArrayCollection
      * @var array|string[]
      */
     private static $proxies;
+
     /**
      * @var BaseCollection
      */
@@ -67,7 +68,7 @@ class Collection extends ArrayCollection
             $result = BaseCollection::$name(...$arguments);
 
             if ($result instanceof BaseCollection) {
-                return static::wrap($result);
+                return new static($result->toArray());
             }
 
             return $result;
@@ -106,7 +107,13 @@ class Collection extends ArrayCollection
     public function __call(string $name, array $arguments = [])
     {
         if (\method_exists($this->inner, $name)) {
-            return $this->inner->$name(...$arguments);
+            $result = $this->inner->$name(...$arguments);
+
+            if ($result instanceof BaseCollection) {
+                return new static($result->toArray());
+            }
+
+            return $result;
         }
 
         $error = \sprintf('Call to undefined method %s::%s', static::class, $name);

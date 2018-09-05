@@ -31,14 +31,27 @@ trait SelectProvider
             }
 
             if (\is_string($field)) {
-                $this->add(new Selection($field));
+                $this->add(new Selection($this, $field));
                 continue;
             }
 
             foreach ($field as $name => $alias) {
-                $this->add(new Selection($name, $alias));
+                if (\is_int($name)) {
+                    [$name, $alias] = [$alias, null];
+                }
+
+                $this->add(new Selection($this, $name, $alias));
             }
         }
         return $this;
+    }
+
+    /**
+     * @param string|null $alias
+     * @return Query
+     */
+    public function withEntity(string $alias = null): Query
+    {
+        return $this->select([':' . $this->getAlias() => $alias]);
     }
 }

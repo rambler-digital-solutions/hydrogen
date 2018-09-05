@@ -8,25 +8,36 @@
 declare(strict_types=1);
 
 namespace RDS\Hydrogen\Criteria;
+
+use RDS\Hydrogen\Criteria\Common\Field;
+use RDS\Hydrogen\Query;
+
 /**
  * Class Selection
  */
 class Selection extends Criterion
 {
     /**
+     * @var Field
+     */
+    private $field;
+
+    /**
      * @var string|null
      */
     private $as;
 
     /**
-     * Select constructor.
+     * Selection constructor.
+     * @param Query $query
      * @param string $field
      * @param string|null $alias
      */
-    public function __construct(string $field, string $alias = null)
+    public function __construct(Query $query, string $field, string $alias = null)
     {
-        parent::__construct($field);
+        parent::__construct($query);
 
+        $this->field = $this->field($field);
         $this->as = $alias;
     }
 
@@ -47,18 +58,10 @@ class Selection extends Criterion
     }
 
     /**
-     * @return string
+     * @return Field
      */
-    public function toString(): string
+    public function getField(): Field
     {
-        return $this->getField()->toString();
-    }
-
-    /**
-     * @return string
-     */
-    public function __toString(): string
-    {
-        return $this->toString();
+        return $this->field;
     }
 }

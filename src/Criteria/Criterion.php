@@ -18,50 +18,60 @@ use RDS\Hydrogen\Query;
 abstract class Criterion implements CriterionInterface
 {
     /**
-     * @var Field
+     * @var Query
      */
-    private $field;
+    protected $query;
 
     /**
      * Criterion constructor.
-     * @param string $field
+     * @param Query $query
      */
-    public function __construct(string $field)
+    public function __construct(Query $query)
     {
-        $this->field = new Field($field);
+        $this->query = $query;
     }
 
     /**
+     * @param string $name
      * @return Field
      */
-    public function getField(): Field
+    protected function field(string $name): Field
     {
-        return $this->field;
+        return new Field($name);
     }
 
     /**
      * @param Query $query
      * @return CriterionInterface
      */
-    public function withQuery(Query $query): CriterionInterface
+    public function attach(Query $query): CriterionInterface
     {
-        if ($this->field) {
-            $this->field->withQuery($query);
-        }
+        $this->query = $query;
 
         return $this;
     }
 
     /**
-     * @param string $alias
-     * @return CriterionInterface
+     * @return bool
      */
-    public function withAlias(string $alias): CriterionInterface
+    public function isAttached(): bool
     {
-        if ($this->field) {
-            $this->field->withAlias($alias);
-        }
+        return $this->query !== null;
+    }
 
-        return $this;
+    /**
+     * @return Query
+     */
+    public function getQuery(): Query
+    {
+        return $this->query;
+    }
+
+    /**
+     * @return string
+     */
+    public function getQueryAlias(): string
+    {
+        return $this->query->getAlias();
     }
 }

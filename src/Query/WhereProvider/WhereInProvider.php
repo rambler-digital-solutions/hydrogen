@@ -36,7 +36,7 @@ trait WhereInProvider
      */
     public function whereIn(string $field, iterable $value): self
     {
-        return $this->add(new Where($field, Operator::IN, $value, $this->mode()));
+        return $this->where($field, Operator::IN, $value);
     }
 
     /**
@@ -56,6 +56,6 @@ trait WhereInProvider
      */
     public function whereNotIn(string $field, iterable $value): self
     {
-        return $this->add(new Where($field, Operator::NOT_IN, $value, $this->mode()));
+        return $this->where($field, Operator::NOT_IN, $value);
     }
 }

@@ -29,9 +29,9 @@ trait AliasProvider
     protected $alias;
 
     /**
-     * @return string|null
+     * @return string
      */
-    public function getAlias(): ?string
+    public function getAlias(): string
     {
         if ($this->alias === null) {
             $this->alias = $this->repository
@@ -43,24 +43,47 @@ trait AliasProvider
     }
 
     /**
-     * @param string|null $pattern
+     * @param string ...$patterns
      * @return string
      */
-    private function createAlias(string $pattern = null): string
+    public function createAlias(string ...$patterns): string
     {
-        $name = $pattern
-            ? \snake_case(\class_basename($pattern))
-            : 'q' . Str::random(7);
+        if (\count($patterns)) {
+            $patterns = \array_map(function(string $pattern) {
+                return \preg_replace('/\W+/iu', '', \snake_case(\class_basename($pattern)));
+            }, $patterns);
 
-        return \sprintf('%s_%d', $name, ++static::$lastQueryId);
+            $pattern = \implode('_', $patterns);
+
+            if (\trim($pattern)) {
+                return \sprintf('%s_%d', $pattern, ++static::$lastQueryId);
+            }
+        }
+
+        return 'q' . Str::random(7) . '_' . ++static::$lastQueryId;
     }
 
     /**
      * @param string|null $pattern
      * @return string
      */
-    public function placeholder(string $pattern = null): string
+    public function createPlaceholder(string $pattern = null): string
     {
         return ':' . $this->createAlias($pattern);
+    }
+
+    /**
+     * @param string $alias
+     * @return Query|$this|self
+     */
+    public function withAlias(string $alias): Query
+    {
+        $this->alias = $alias;
+
+        foreach ($this->getCriteria() as $criterion) {
+            $criterion->withAlias($alias);
+        }
+
+        return $this;
     }
 }

@@ -36,7 +36,7 @@ trait LimitAndOffsetProvider
      */
     public function limit(int $count): self
     {
-        return $this->add(new Limit($count));
+        return $this->add(new Limit($this, $count));
     }
 
     /**
@@ -56,7 +56,7 @@ trait LimitAndOffsetProvider
      */
     public function offset(int $count): self
     {
-        return $this->add(new Offset($count));
+        return $this->add(new Offset($this, $count));
     }
 
     /**
