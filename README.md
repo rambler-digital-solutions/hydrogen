@@ -163,7 +163,7 @@ $users->toCollection()->each(function (User $user): void {
 });
 ```
 
-**Note:** Direct access to the Hydrogen build, instead of the 
+> **Note:** Direct access to the Hydrogen build, instead of the 
 existing methods, which is provided by the Doctrine completely 
 **ignores** all relations (like: `@OneToMany(..., fetch="EAGER")`).
 
