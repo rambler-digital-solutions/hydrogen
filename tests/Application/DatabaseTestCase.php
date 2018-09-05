@@ -33,7 +33,7 @@ abstract class DatabaseTestCase extends TestCase
     /**
      * @var string
      */
-    protected const DATABASE_PATH = __DIR__ . '/../resources/db.sqlite';
+    protected const DATABASE_PATH = __DIR__ . '/../.temp/db.sqlite';
 
     /**
      * @var bool
