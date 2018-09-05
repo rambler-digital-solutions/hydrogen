@@ -25,9 +25,12 @@ trait RelationProvider
      */
     public function with(...$relations): self
     {
-        return $this->addRelation(function(string $field, \Closure $inner = null) {
+        // TODO Add temporary fallback to left join
+        return $this->leftJoin(...$relations);
+
+        /*return $this->addRelation(function(string $field, \Closure $inner = null) {
             return new Relation($this, $field, $inner);
-        }, ...$relations);
+        }, ...$relations);*/
     }
 
     /**
