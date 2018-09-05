@@ -34,7 +34,9 @@
 - [Limit And Offset](#limit-and-offset)
 - [Embeddables](#embeddables)
 - [Relations](#relations)
-    - [Greedy Loading](#greedy-loading)
+    - [Joins](#joins)
+    - [Joins Subqueries](#joins-subqueries)
+    - [External Subqueries](#external-subqueries)
     - [Nested Relationships](#nested-relationships)
     - [Relations Subqueries](#relations-subqueries)
 - [Collections](#collections)
@@ -341,33 +343,33 @@ $users = $repository->query
 
 ### Additional Where Clauses
 
-**between**
+**whereBetween**
 
-The `between` method verifies that a Entity fields's value is between two values:
+The `whereBetween` method verifies that a Entity fields's value is between two values:
 
 ```php
 $users = $repository->query
-    ->between('votes', 1, 100)
+    ->whereBetween('votes', 1, 100)
     ->get();
 
 $users = $repository->query
     ->where('name', 'John')
-    ->orBetween('votes', 1, 100)
+    ->orWhereBetween('votes', 1, 100)
     ->get();
 ```
 
-**notBetween**
+**whereNotBetween**
 
-The `notBetween` method verifies that a Entity field's value lies outside of two values:
+The `whereNotBetween` method verifies that a Entity field's value lies outside of two values:
 
 ```php
 $users = $repository->query
-    ->notBetween('votes', 1, 100)
+    ->whereNotBetween('votes', 1, 100)
     ->get();
 
 $users = $repository->query
     ->where('name', 'John')
-    ->orNotBetween('votes', 1, 100)
+    ->orWhereNotBetween('votes', 1, 100)
     ->get();
 ```
 
@@ -734,6 +736,8 @@ applicable to these relationships:
  */
 class Customer
 {
+    /** .... */
+    
     /**
      * @ORM\OneToOne(targetEntity=Cart::class, mappedBy="customer")
      */
@@ -745,6 +749,8 @@ class Customer
  */
 class Cart
 {
+    /** .... */
+    
     /**
      * @ORM\OneToOne(targetEntity=Customer::class, inversedBy="cart")
      * @ORM\JoinColumn(name="customer_id", referencedColumnName="id")
@@ -753,14 +759,51 @@ class Cart
 }
 ```
 
-### Greedy Loading
-
 If you create a basic query to the repository, in this case you will 
 get the same `N+1`, where for each element the blocks will be 
 generated with one additional query, for each related entity.
 
-In order to avoid this, use the `with()` method to indicate all 
-the links that must be greedily loaded:
+### Joins
+
+One of the options for working with relations in the Doctrine are joins. 
+In order for the query to ask for data with a relation in one query, you 
+should use `join` (uses `INNER JOIN`) or `leftJoin` (uses `LEFT JOIN`) methods:
+
+```php
+$customers = $customerRepository->query
+    ->join('cart')
+    ->get();
+
+foreach ($customers as $customer) {
+    echo $customer->cart->id;
+}
+```
+
+> **Please note** that when using joins, you can not use `limit`, because it affects 
+the total amount of data in the response (i.e., including relations), rather than the 
+number of parent entities.
+
+### Joins Subqueries
+
+We can also work with additional operations on dependent entities. 
+For example, we want to get a list of users (customers) who have more than 
+100 rubles on their balance sheet:
+
+```php
+$customers = $customerRepository->query
+     ->join(['cart' => function (Query $query): void {
+         $query->where('balance', '>', 100)
+            ->where('currency', 'RUB');
+     }])
+     ->get();
+```
+
+> **Note**: Operations using `join` affect the underlying query.
+
+### External Subqueries
+
+Alternatively, you can use the `with` method, which instead of 
+join will make an additional request.
 
 ```php
 <?php
@@ -790,22 +833,9 @@ $repository->findAll();
 ```php
 $repository->findAllWithCarts();
 
-// 1: SELECT с1, c2 FROM Customer c1 LEFT JOIN Cart c2 ON c1.customer_id = c2.id
+// 1: SELECT с, c.customer_id FROM Customer c
+// 2: SELECT c FROM Cart c WHERE c.id IN (...)
 ```
-
-### Nested Relationships
-
-The sampling method described above affects only the direct relationship 
-indicated in `->with()` method. In order to "greedly" loading of the entire
-chain of relationships you may use the point (`.`) operator:
-
-```php
-$result = $users->query
-    ->with('messages', 'posts.author')
-    ->get();
-```
-
-### Relations Subqueries
 
 Sometimes you need to carefully select only those elements of the 
 relationships that are required or sort them in the desired order. 
@@ -819,6 +849,35 @@ $users = $repository->query
     }])
     ->get();
 ```
+
+> **Note**: Operations using `with` affect the relations.
+
+### Nested Relationships
+
+The sampling method described above affects only the direct relationship 
+indicated in `->with()` method. In order to "greedly" loading of the entire
+chain of relationships you may use the point (`.`) operator:
+
+```php
+$customers = $customerRepository->query
+     ->with('cart', ['cart.goods' => function (Query $query): void {
+        $query->whereNull('deletedAt')->orderBy('createdAt');
+     }])
+     ->get();
+```
+
+So, if we need all the customers that have been ordered, 
+for example, movie tickets, we need to make a simple request:
+
+```php
+$customers = $customerRepository->query
+     ->join(['cart.goods' => function (Query $query): void {
+         $query->where('category', 'tickets')
+            ->where('value', '>', 0);
+     }])
+     ->get();
+```
+
 
 ## Collections
 
