@@ -69,8 +69,8 @@ trait ModeProvider
      */
     private function createGroup(string $fn, \Closure $group): CriterionInterface
     {
-        $latest = $this->criteria->count()
-            ? \get_class($this->criteria->top())
+        $latest = \count($this->criteria)
+            ? \get_class(\array_last($this->criteria))
             : null;
 
         switch($latest) {
@@ -85,6 +85,7 @@ trait ModeProvider
 
         $error = 'Operator "%s" can be added only after Where or Having clauses, but %s given';
         $given = $latest ? \class_basename($latest) : 'none';
+
         throw new \LogicException(\sprintf($error, \strtoupper($fn), $given));
     }
 
@@ -93,7 +94,7 @@ trait ModeProvider
      */
     protected function mode(): bool
     {
-        return \tap($this->conjunction, function () {
+        return \tap($this->conjunction, function (): void {
             $this->conjunction = true;
         });
     }

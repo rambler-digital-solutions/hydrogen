@@ -52,6 +52,15 @@ abstract class Criterion implements CriterionInterface
     }
 
     /**
+     * @param Query $query
+     * @return bool
+     */
+    public function isAttachedTo(Query $query): bool
+    {
+        return $this->query === $query;
+    }
+
+    /**
      * @return bool
      */
     public function isAttached(): bool

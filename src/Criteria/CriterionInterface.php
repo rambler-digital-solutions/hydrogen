@@ -23,6 +23,12 @@ interface CriterionInterface
     public function attach(Query $query): CriterionInterface;
 
     /**
+     * @param Query $query
+     * @return bool
+     */
+    public function isAttachedTo(Query $query): bool;
+
+    /**
      * @return bool
      */
     public function isAttached(): bool;

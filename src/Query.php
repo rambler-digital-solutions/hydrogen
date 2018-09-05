@@ -14,7 +14,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Illuminate\Support\Traits\Macroable;
 use RDS\Hydrogen\Criteria\CriterionInterface;
-use RDS\Hydrogen\Processor\ProcessorInterface;
 use RDS\Hydrogen\Query\AliasProvider;
 use RDS\Hydrogen\Query\ExecutionsProvider;
 use RDS\Hydrogen\Query\GroupByProvider;
@@ -53,9 +52,9 @@ class Query implements \IteratorAggregate
     private static $booted = false;
 
     /**
-     * @var CriterionInterface[]|\SplDoublyLinkedList
+     * @var CriterionInterface[]
      */
-    protected $criteria;
+    protected $criteria = [];
 
     /**
      * @var array|ObjectRepository[]
@@ -68,8 +67,6 @@ class Query implements \IteratorAggregate
      */
     public function __construct(ObjectRepository $repository = null)
     {
-        $this->criteria = new \SplDoublyLinkedList();
-
         if ($repository) {
             $this->from($repository);
         }
@@ -203,7 +200,7 @@ class Query implements \IteratorAggregate
             $criterion->attach($this);
         }
 
-        $this->criteria->push($criterion);
+        $this->criteria[] = $criterion;
 
         return $this;
     }
@@ -288,19 +285,81 @@ class Query implements \IteratorAggregate
 
     /**
      * @return void
+     * @throws \LogicException
      */
     public function __clone()
     {
-        $reflection = new \ReflectionClass($this);
+        $error = '%s not allowed. Use %s::clone() instead';
 
-        foreach ($reflection->getProperties() as $property) {
-            $property->setAccessible(true);
-            $value = $property->getValue($this);
+        throw new \LogicException(\sprintf($error, __METHOD__, __CLASS__));
+    }
 
-            if (\is_object($value)) {
-                $property->setValue($this, clone $value);
+    /**
+     * @param string|\Closure $filter
+     * @return Query
+     */
+    public function only($filter): Query
+    {
+        \assert(\is_string($filter) || \is_callable($filter));
+
+        if (\is_string($filter) && ! \is_callable($filter)) {
+            $typeOf = $filter;
+
+            $filter = function (CriterionInterface $criterion) use ($typeOf): bool {
+                return $criterion instanceof $typeOf;
+            };
+        }
+
+        $copy = $this->clone();
+
+        $criteria = [];
+
+        foreach ($copy->getCriteria() as $criterion) {
+            if ($filter($criterion)) {
+                $criteria[] = $criterion;
             }
         }
+
+        $copy->criteria = $criteria;
+
+        return $copy;
+    }
+
+    /**
+     * @param string|\Closure $filter
+     * @return Query
+     */
+    public function except($filter): Query
+    {
+        if (\is_string($filter) && ! \is_callable($filter)) {
+            return $this->only(function (CriterionInterface $criterion) use ($filter): bool {
+                return ! $criterion instanceof $filter;
+            });
+        }
+
+        return $this->only(function (CriterionInterface $criterion) use ($filter): bool {
+            return ! $filter($criterion);
+        });
+    }
+
+    /**
+     * @return Query
+     */
+    public function clone(): Query
+    {
+        $clone = $this->create();
+
+        foreach ($this->criteria as $criterion) {
+            $criterion = clone $criterion;
+
+            if ($criterion->isAttachedTo($this)) {
+                $criterion->attach($clone);
+            }
+
+            $clone->add($criterion);
+        }
+
+        return $clone;
     }
 
     /**
