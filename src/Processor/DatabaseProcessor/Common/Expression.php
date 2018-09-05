@@ -67,7 +67,7 @@ class Expression
                     return $expr->isNull(yield $field);
 
                 case Operator::NEQ:
-                    return $expr->isNull(yield $field);
+                    return $expr->isNotNull(yield $field);
             }
         }
 
