@@ -9,6 +9,7 @@
 declare(strict_types=1);
 
 namespace {
+
     /**
      * This pattern is used to specify the location of the delegate in
      * the function arguments in the high-order messaging.
@@ -25,7 +26,7 @@ namespace {
      * </code>
      */
     if (! \defined('_')) {
-        \define('_', \RDS\Hydrogen\Collection\HigherOrderCollectionProxy::PATTERN);
+        \define('_', \RDS\Hydrogen\HighOrderMessaging\HigherOrderCollectionProxy::PATTERN);
     }
 
     // ---------------------------------------------
