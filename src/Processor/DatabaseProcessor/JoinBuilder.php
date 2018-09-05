@@ -54,17 +54,22 @@ class JoinBuilder extends WhereBuilder
         [$alias, $relation] = [$join->getQueryAlias(), []];
 
         foreach ($join->getRelations($this->processor) as $isLast => $relation) {
+            // Is the relation already loaded in current query execution
+            $exists = $this->hasAlias($relation);
+
             // Resolve relation alias
             $relationAlias = $isLast && $join->hasJoinQuery()
                 ? $this->getAlias($relation)
                 : $this->getCachedAlias($relation);
 
-            // Create join
-            $relationField = Field::new($relation['fieldName'])->toString($alias);
-            $this->join($builder, $join, $relationField, $relationAlias);
+            if (! $exists) {
+                // Create join
+                $relationField = Field::new($relation['fieldName'])->toString($alias);
+                $this->join($builder, $join, $relationField, $relationAlias);
 
-            // Add join to selection statement
-            $builder->addSelect($relationAlias);
+                // Add join to selection statement
+                $builder->addSelect($relationAlias);
+            }
 
             // Shift parent
             $alias = $relationAlias;
@@ -104,6 +109,17 @@ class JoinBuilder extends WhereBuilder
     private function getKey(array $relation): string
     {
         return $relation['sourceEntity'] . '_' . $relation['targetEntity'];
+    }
+
+    /**
+     * @param array $relation
+     * @return bool
+     */
+    private function hasAlias(array $relation): bool
+    {
+        $key = $this->getKey($relation);
+
+        return isset($this->relations[$key]);
     }
 
     /**

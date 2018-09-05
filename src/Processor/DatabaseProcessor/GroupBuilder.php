@@ -9,13 +9,12 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen\Processor\DatabaseProcessor;
 
-use Doctrine\ORM\Query\Expr\Andx;
 use Doctrine\ORM\QueryBuilder;
-use phpDocumentor\Reflection\Types\Static_;
-use RDS\Hydrogen\Criteria\Criterion;
-use RDS\Hydrogen\Criteria\CriterionInterface;
-use RDS\Hydrogen\Criteria\WhereGroup;
 use RDS\Hydrogen\Criteria\Where;
+use Doctrine\ORM\Query\Expr\Andx;
+use RDS\Hydrogen\Criteria\Criterion;
+use RDS\Hydrogen\Criteria\WhereGroup;
+use RDS\Hydrogen\Criteria\CriterionInterface;
 use RDS\Hydrogen\Processor\DatabaseProcessor\Common\Expression;
 
 /**
@@ -28,26 +27,8 @@ class GroupBuilder extends Builder
      */
     protected const ALLOWED_INNER_TYPES = [
         Where::class      => 'applyWhere',
-        WhereGroup::class => 'applyGroup'
+        WhereGroup::class => 'applyGroup',
     ];
-
-    /**
-     * @param QueryBuilder $builder
-     * @param CriterionInterface|WhereGroup $group
-     * @return iterable|null
-     */
-    public function apply($builder, CriterionInterface $group): ?iterable
-    {
-        $expression = $builder->expr()->andX();
-
-        foreach ($this->getInnerSelections($group) as $criterion => $fn) {
-            yield from $fn($builder, $expression, $criterion);
-        }
-
-        return $group->isAnd()
-            ? $builder->andWhere($expression)
-            : $builder->orWhere($expression);
-    }
 
     /**
      * @param QueryBuilder $builder
@@ -62,20 +43,18 @@ class GroupBuilder extends Builder
 
     /**
      * @param QueryBuilder $builder
-     * @param Andx $context
-     * @param Where $where
-     * @return \Generator
+     * @param CriterionInterface|WhereGroup $group
+     * @return iterable|null
      */
-    protected function applyWhere(QueryBuilder $builder, Andx $context, Where $where): \Generator
+    public function apply($builder, CriterionInterface $group): ?iterable
     {
-        $expression = new Expression($builder, $where->getOperator(), $where->getValue());
-        yield from $result = $expression->create($where->getField());
+        $expression = $builder->expr()->andX();
 
-        if ($where->isAnd()) {
-            $context->add($result->getReturn());
-        } else {
-            $builder->orWhere($result->getReturn());
+        foreach ($this->getInnerSelections($group) as $criterion => $fn) {
+            yield from $fn($builder, $expression, $criterion);
         }
+
+        return $group->isAnd() ? $builder->andWhere($expression) : $builder->orWhere($expression);
     }
 
     /**
@@ -96,6 +75,24 @@ class GroupBuilder extends Builder
 
             $error = 'Groups not allowed for %s criterion';
             throw new \LogicException(\sprintf($error, \get_class($criterion)));
+        }
+    }
+
+    /**
+     * @param QueryBuilder $builder
+     * @param Andx $context
+     * @param Where $where
+     * @return \Generator
+     */
+    protected function applyWhere(QueryBuilder $builder, Andx $context, Where $where): \Generator
+    {
+        $expression = new Expression($builder, $where->getOperator(), $where->getValue());
+        yield from $result = $expression->create($where->getField());
+
+        if ($where->isAnd()) {
+            $context->add($result->getReturn());
+        } else {
+            $builder->orWhere($result->getReturn());
         }
     }
 }

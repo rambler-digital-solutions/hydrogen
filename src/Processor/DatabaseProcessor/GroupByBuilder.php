@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace RDS\Hydrogen\Processor\DatabaseProcessor;
 
 use Doctrine\ORM\QueryBuilder;
-use RDS\Hydrogen\Criteria\CriterionInterface;
 use RDS\Hydrogen\Criteria\GroupBy;
+use RDS\Hydrogen\Criteria\CriterionInterface;
 
 /**
  * Class GroupByBuilder
