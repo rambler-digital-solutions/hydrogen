@@ -418,7 +418,7 @@ class Query implements \IteratorAggregate
      */
     public function isEmpty(): bool
     {
-        return $this->criteria->count() === 0;
+        return \count($this->criteria) === 0;
     }
 
     /**
