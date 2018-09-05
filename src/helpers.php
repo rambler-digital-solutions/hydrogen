@@ -5,6 +5,7 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
+
 declare(strict_types=1);
 
 namespace {
@@ -25,5 +26,16 @@ namespace {
      */
     if (! \defined('_')) {
         \define('_', \RDS\Hydrogen\Collection\HigherOrderCollectionProxy::PATTERN);
+    }
+
+    // ---------------------------------------------
+    // Polyfills
+    // ---------------------------------------------
+
+    /**
+     * @since 0.3.4
+     */
+    if (! \class_exists(\RDS\Hydrogen\Collection\Collection::class)) {
+        \class_alias(\RDS\Hydrogen\Collection::class, \RDS\Hydrogen\Collection\Collection::class);
     }
 }

@@ -7,11 +7,12 @@
  */
 declare(strict_types=1);
 
-namespace RDS\Hydrogen\Collection;
+namespace RDS\Hydrogen;
 
 use Doctrine\Common\Collections\ArrayCollection;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection as BaseCollection;
+use RDS\Hydrogen\HighOrderMessaging\HigherOrderCollectionProxy;
 
 /**
  * Class Collection
@@ -48,7 +49,7 @@ class Collection extends ArrayCollection
     private function exportProxies(): void
     {
         if (static::$proxies === null) {
-            $class    = new \ReflectionClass($this->inner);
+            $class = new \ReflectionClass($this->inner);
             $property = $class->getProperty('proxies');
             $property->setAccessible(true);
 

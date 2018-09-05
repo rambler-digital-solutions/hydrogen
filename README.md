@@ -939,7 +939,7 @@ Pattern "`_`" is used to specify the location of the delegate in
 the function arguments in the higher-order messaging while using global functions.
 
 ```php
-use RDS\Hydrogen\Collection\Collection;
+use RDS\Hydrogen\Collection;
 
 $data = [
     ['value' => '23'],
@@ -990,7 +990,7 @@ $example3 = Collection::make($data)
 ### Destructuring
 
 ```php
-use RDS\Hydrogen\Collection\Collection;
+use RDS\Hydrogen\Collection;
 
 $collection = Collection::make([
     ['a' => 'A1', 'b' => 'B1' 'value' => '23'],

@@ -7,9 +7,10 @@
  */
 declare(strict_types=1);
 
-namespace RDS\Hydrogen\Collection;
+namespace RDS\Hydrogen\HighOrderMessaging;
 
 use Illuminate\Support\Str;
+use RDS\Hydrogen\Collection;
 
 /**
  * Class HigherOrderCollectionProxy
@@ -71,8 +72,6 @@ class HigherOrderCollectionProxy
             if (\function_exists($snake)) {
                 return $snake($item);
             }
-
-
         });
     }
 
@@ -101,11 +100,10 @@ class HigherOrderCollectionProxy
             }
 
             $snake = Str::snake($method);
+
             if (\function_exists(Str::snake($snake))) {
                 return $snake(...$this->pack($item, $arguments));
             }
-
-
         });
     }
 
