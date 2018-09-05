@@ -26,7 +26,11 @@ use RDS\Hydrogen\Query\SelectProvider;
 use RDS\Hydrogen\Query\WhereProvider;
 
 /**
- * Class Query
+ * A base class for all queries, contains the execution context
+ * and a set of methods for adding criteria to this context.
+ *
+ * To add new methods during runtime, you can use the
+ * `Query::macro(..)` method.
  */
 class Query implements \IteratorAggregate
 {
@@ -47,32 +51,46 @@ class Query implements \IteratorAggregate
     use LimitAndOffsetProvider;
 
     /**
+     * Contains the status of the download. Before any request,
+     * you need to make sure that all the runtime is loaded.
+     *
+     * It is this perennial one that indicates if at least one
+     * query has already been created in order to load the
+     * necessary functions.
+     *
      * @var bool
      */
     private static $booted = false;
 
     /**
+     * A set of query criteria in a given execution context.
+     *
      * @var CriterionInterface[]
      */
     protected $criteria = [];
 
     /**
+     * A set of scopes (classes and objects) that have access to be
+     * able to create a query from a set of methods defined
+     * in the specified scopes.
+     *
      * @var array|ObjectRepository[]
      */
     protected $scopes = [];
 
     /**
-     * Query constructor.
      * @param ObjectRepository|null $repository
      */
     public function __construct(ObjectRepository $repository = null)
     {
-        if ($repository) {
+        if ($repository !== null) {
             $this->from($repository);
         }
     }
 
     /**
+     * Method for creating native DB queries or query parts.
+     *
      * @param string $stmt
      * @return string
      */
@@ -82,18 +100,10 @@ class Query implements \IteratorAggregate
     }
 
     /**
-     * @param string $method
-     * @param array $parameters
-     * @return mixed
-     */
-    public static function __callStatic(string $method, array $parameters = [])
-    {
-        $instance = new static();
-
-        return $instance->$method(...$parameters);
-    }
-
-    /**
+     * The method checks for the presence of the required criterion inside the query.
+     *
+     * TODO Add callable argument support (like filter).
+     *
      * @param string $criterion
      * @return bool
      */
@@ -109,6 +119,11 @@ class Query implements \IteratorAggregate
     }
 
     /**
+     * Provides the ability to directly access methods without specifying parentheses.
+     *
+     * TODO 1) Add High Order Messaging for methods like `->field->where(23)` instead `->where('field', 23)`
+     * TODO 2) Allow inner access `->embedded->field->where(23)` instead `->where('embedded.field', 23)`
+     *
      * @param string $name
      * @return null
      */
@@ -122,30 +137,8 @@ class Query implements \IteratorAggregate
     }
 
     /**
-     * @return string
-     */
-    public function getClassName(): string
-    {
-        return $this->getRepository()->getClassName();
-    }
-
-    /**
-     * @return EntityManagerInterface
-     */
-    public function getEntityManager(): EntityManagerInterface
-    {
-        return $this->getRepository()->getEntityManager();
-    }
-
-    /**
-     * @return ClassMetadata
-     */
-    public function getMetadata(): ClassMetadata
-    {
-        return $this->getEntityManager()->getClassMetadata($this->getClassName());
-    }
-
-    /**
+     * Creates the ability to directly access the table's column.
+     *
      * @param string $name
      * @return string
      */
@@ -158,24 +151,78 @@ class Query implements \IteratorAggregate
     }
 
     /**
+     * @internal For internal use only
+     * @return ClassMetadata
+     */
+    public function getMetadata(): ClassMetadata
+    {
+        return $this->getEntityManager()->getClassMetadata($this->getClassName());
+    }
+
+    /**
+     * @internal For internal use only
+     * @return EntityManagerInterface
+     */
+    public function getEntityManager(): EntityManagerInterface
+    {
+        return $this->getRepository()->getEntityManager();
+    }
+
+    /**
+     * @internal For internal use only
+     * @return string
+     */
+    public function getClassName(): string
+    {
+        return $this->getRepository()->getClassName();
+    }
+
+    /**
      * @param string $method
      * @param array $parameters
      * @return mixed|$this|Query
      */
     public function __call(string $method, array $parameters = [])
     {
+        if ($result = $this->callScopes($method, $parameters)) {
+            return $result;
+        }
+
+        return $this->__macroableCall($method, $parameters);
+    }
+
+    /**
+     * @param string $method
+     * @param array $parameters
+     * @return null|Query
+     */
+    private function callScopes(string $method, array $parameters = []): ?Query
+    {
         foreach ($this->scopes as $scope) {
             if (\method_exists($scope, $method)) {
                 /** @var Query $query */
-                $query = \is_object($scope)
-                    ? $scope->$method(...$parameters)
-                    : $scope::$method(...$parameters);
+                $query = \is_object($scope) ? $scope->$method(...$parameters) : $scope::$method(...$parameters);
 
                 return $this->merge($query->clone());
             }
         }
 
-        return $this->__macroableCall($method, $parameters);
+        return null;
+    }
+
+    /**
+     * Copies a set of Criteria from the child query to the parent.
+     *
+     * @param Query $query
+     * @return Query
+     */
+    public function merge(Query $query): Query
+    {
+        foreach ($query->getCriteria() as $criterion) {
+            $criterion->attach($this);
+        }
+
+        return $this->attach($query);
     }
 
     /**
@@ -186,6 +233,19 @@ class Query implements \IteratorAggregate
     public function getCriteria(): \Generator
     {
         yield from $this->criteria;
+    }
+
+    /**
+     * @param Query $query
+     * @return Query
+     */
+    public function attach(Query $query): Query
+    {
+        foreach ($query->getCriteria() as $criterion) {
+            $this->add($criterion);
+        }
+
+        return $this;
     }
 
     /**
@@ -203,6 +263,26 @@ class Query implements \IteratorAggregate
         $this->criteria[] = $criterion;
 
         return $this;
+    }
+
+    /**
+     * @return Query
+     */
+    public function clone(): Query
+    {
+        $clone = $this->create();
+
+        foreach ($this->criteria as $criterion) {
+            $criterion = clone $criterion;
+
+            if ($criterion->isAttachedTo($this)) {
+                $criterion->attach($clone);
+            }
+
+            $clone->add($criterion);
+        }
+
+        return $clone;
     }
 
     /**
@@ -256,34 +336,6 @@ class Query implements \IteratorAggregate
     }
 
     /**
-     * Copies a set of Criteria from the child query to the parent.
-     *
-     * @param Query $query
-     * @return Query
-     */
-    public function merge(Query $query): Query
-    {
-        foreach ($query->getCriteria() as $criterion) {
-            $criterion->attach($this);
-        }
-
-        return $this->attach($query);
-    }
-
-    /**
-     * @param Query $query
-     * @return Query
-     */
-    public function attach(Query $query): Query
-    {
-        foreach ($query->getCriteria() as $criterion) {
-            $this->add($criterion);
-        }
-
-        return $this;
-    }
-
-    /**
      * @return void
      * @throws \LogicException
      */
@@ -292,37 +344,6 @@ class Query implements \IteratorAggregate
         $error = '%s not allowed. Use %s::clone() instead';
 
         throw new \LogicException(\sprintf($error, __METHOD__, __CLASS__));
-    }
-
-    /**
-     * @param string|\Closure $filter
-     * @return Query
-     */
-    public function only($filter): Query
-    {
-        \assert(\is_string($filter) || \is_callable($filter));
-
-        if (\is_string($filter) && ! \is_callable($filter)) {
-            $typeOf = $filter;
-
-            $filter = function (CriterionInterface $criterion) use ($typeOf): bool {
-                return $criterion instanceof $typeOf;
-            };
-        }
-
-        $copy = $this->clone();
-
-        $criteria = [];
-
-        foreach ($copy->getCriteria() as $criterion) {
-            if ($filter($criterion)) {
-                $criteria[] = $criterion;
-            }
-        }
-
-        $copy->criteria = $criteria;
-
-        return $copy;
     }
 
     /**
@@ -343,23 +364,43 @@ class Query implements \IteratorAggregate
     }
 
     /**
+     * @param string|\Closure $filter
      * @return Query
      */
-    public function clone(): Query
+    public function only($filter): Query
     {
-        $clone = $this->create();
+        $filter = $this->createFilter($filter);
+        $copy = $this->clone();
+        $criteria = [];
 
-        foreach ($this->criteria as $criterion) {
-            $criterion = clone $criterion;
-
-            if ($criterion->isAttachedTo($this)) {
-                $criterion->attach($clone);
+        foreach ($copy->getCriteria() as $criterion) {
+            if ($filter($criterion)) {
+                $criteria[] = $criterion;
             }
-
-            $clone->add($criterion);
         }
 
-        return $clone;
+        $copy->criteria = $criteria;
+
+        return $copy;
+    }
+
+    /**
+     * @param string|callable $filter
+     * @return callable
+     */
+    private function createFilter($filter): callable
+    {
+        \assert(\is_string($filter) || \is_callable($filter));
+
+        if (\is_string($filter) && ! \is_callable($filter)) {
+            $typeOf = $filter;
+
+            return function (CriterionInterface $criterion) use ($typeOf): bool {
+                return $criterion instanceof $typeOf;
+            };
+        }
+
+        return $filter;
     }
 
     /**
@@ -381,6 +422,14 @@ class Query implements \IteratorAggregate
     }
 
     /**
+     * @return string
+     */
+    public function dump(): string
+    {
+        return $this->getRepository()->getProcessor()->dump($this);
+    }
+
+    /**
      * @return void
      */
     private function bootIfNotBooted(): void
@@ -391,13 +440,5 @@ class Query implements \IteratorAggregate
             $bootstrap = new Bootstrap();
             $bootstrap->register($this->getRepository()->getEntityManager());
         }
-    }
-
-    /**
-     * @return string
-     */
-    public function dump(): string
-    {
-        return $this->getRepository()->getProcessor()->dump($this);
     }
 }
