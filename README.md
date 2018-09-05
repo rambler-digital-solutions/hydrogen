@@ -24,6 +24,7 @@
     - [Retrieving A List Of Field Values](#retrieving-a-list-of-field-values)
     - [Aggregates And Scalar Results](#aggregates-and-scalar-results)
 - [Selects](#selects)
+    - [Additional fields](#additional-fields)
 - [Where Clauses](#where-clauses)
     - [Simple Where Clauses](#simple-where-clauses)
     - [Or Statements](#or-statements)
@@ -268,13 +269,57 @@ Using the `select()` method, you can specify a
 custom select clause for the query:
 
 ```php
-[0 => $user, 'count' => $count] = $users->query
+['count' => $count] = $users->query
     ->select(['COUNT(id)' => 'count'])
     ->get();
 
-echo $user->getName();
 echo $count;
 ```
+
+Also, this expression can be simplified 
+and rewritten in this way:
+
+```php
+$result = $users->query
+    ->select(['COUNT(id)' => 'count'])
+    ->scalar('count');
+
+echo $result;
+```
+
+### Additional fields
+
+**Entity**
+
+You noticed that if we specify a select, then in the response we get the data
+of the select, ignoring the Entity. In order to get any entity in the response, 
+we should use the method `withEntity`:
+
+```php
+['messages' => $messages, 'user' => $user] = $users->query
+    ->select(['COUNT(messages)' => 'messages'])
+    ->withEntity('user')
+    ->where('id', 23)
+    ->first();
+```
+
+**Raw Columns**
+
+Sometimes some fields may not be contained in Entity, for example, 
+relation keys. In this case, we have no choice but to choose this 
+columns directly, bypassing the structure of the Entity:
+
+```php
+$messages = $query
+    ->select([$query->column('user_id') => 'user_id'])
+    ->withEntity('message')
+    ->get('message', 'user_id');
+    
+foreach ($messages as ['message' => $message, 'user_id' => $id]) {
+    echo $message->title . ' of user #' . $id; 
+}
+```
+
 
 ## Where Clauses
 
