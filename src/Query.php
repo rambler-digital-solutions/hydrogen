@@ -168,10 +168,10 @@ class Query implements \IteratorAggregate
             if (\method_exists($scope, $method)) {
                 /** @var Query $query */
                 $query = \is_object($scope)
-                    ? clone $scope->$method(...$parameters)
-                    : clone $scope::$method(...$parameters);
+                    ? $scope->$method(...$parameters)
+                    : $scope::$method(...$parameters);
 
-                return $this->merge($query);
+                return $this->merge($query->clone());
             }
         }
 
