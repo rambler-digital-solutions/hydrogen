@@ -25,18 +25,14 @@ class UsersTestCase extends QueryTestCase
      */
     public function testSimpleRelations(): void
     {
-        $queries = $this->log(function () {
-            /** @var User[] $users */
-            $users = $this->getRepository()->query
-                ->leftJoin('messages')
-                ->get();
+        /** @var User[] $users */
+        $users = $this->getRepository()->query
+            ->leftJoin('messages')
+            ->get();
 
-            foreach ($users as $user) {
-                $this->assertGreaterThan(1, \count($user->messages->toArray()));
-            }
-        });
-
-        $this->assertCount(1, $queries);
+        foreach ($users as $user) {
+            $this->assertGreaterThan(1, \count($user->messages->toArray()));
+        }
     }
 
     /**

@@ -32,23 +32,18 @@ class MessagesTestCase extends QueryTestCase
      */
     public function testSimpleRelations(): void
     {
-        $queries = $this->log(function () {
-            /** @var Message[] $messages */
-            $messages = $this->getRepository()->query
-                ->join('author', 'likedBy')
-                ->get();
+        /** @var Message[] $messages */
+        $messages = $this->getRepository()->query
+            ->join('author', 'likedBy')
+            ->get();
 
-            foreach ($messages as $message) {
-                $this->assertInternalType('string', $message->author->name);
+        foreach ($messages as $message) {
+            $this->assertInternalType('string', $message->author->name);
 
-                foreach ($message->likedBy as $user) {
-                    $this->assertInstanceOf(User::class, $user);
-                }
+            foreach ($message->likedBy as $user) {
+                $this->assertInstanceOf(User::class, $user);
             }
-
-        });
-
-        $this->assertCount(2, $queries, \print_r($queries, true));
+        }
     }
 
     /**
