@@ -13,6 +13,8 @@ use Doctrine\ORM\EntityRepository;
 use Faker\Generator;
 use RDS\Hydrogen\Hydrogen;
 use RDS\Hydrogen\Query;
+use RDS\Hydrogen\Tests\Application\Mock\Entity\Message;
+use RDS\Hydrogen\Tests\Application\Mock\Entity\User;
 use RDS\Hydrogen\Tests\Application\Mock\ExampleScope;
 
 /**
@@ -21,20 +23,22 @@ use RDS\Hydrogen\Tests\Application\Mock\ExampleScope;
 abstract class QueryTestCase extends DatabaseTestCase
 {
     /**
-     * @var int
+     * @return int
+     * @throws \Doctrine\ORM\NonUniqueResultException
      */
-    private $count = 0;
+    protected function getEntitiesCount(): int
+    {
+        $builder = $this->getRepository()->createQueryBuilder('e');
+        $builder->select('COUNT(e.id)');
+        $builder->setMaxResults(1);
+
+        return (int)$builder->getQuery()->getSingleScalarResult();
+    }
 
     /**
-     * @var string|null
+     * @return string
      */
-    private $entity;
-
-    /**
-     * @param Generator $faker
-     * @return \Generator
-     */
-    abstract protected function getMocks(Generator $faker): \Generator;
+    abstract protected function getEntityClass(): string;
 
     /**
      * @return EntityRepository|Hydrogen
@@ -44,23 +48,45 @@ abstract class QueryTestCase extends DatabaseTestCase
     /**
      * @throws \Doctrine\DBAL\DBALException
      * @throws \Doctrine\ORM\ORMException
+     * @throws \Doctrine\Common\Annotations\AnnotationException
      */
     public function setUp(): void
     {
         parent::setUp();
 
-        foreach ($this->getMocks($this->faker()) as $entity) {
-            $this->count++;
-            $this->entity = \get_class($entity);
-            $this->em->persist($entity);
+        $this->log(function() {
+            foreach ($this->getMocks($this->faker()) as $entity) {
+                $this->em->persist($entity);
+            }
+
+            $this->em->flush();
+            $this->em->clear();
+        });
+    }
+
+    /**
+     * @param Generator $faker
+     * @return \Generator
+     * @throws \Exception
+     */
+    protected function getMocks(Generator $faker): \Generator
+    {
+        for ($i = \random_int(6, 20); $i--;) {
+            $user = new User();
+            $user->name = $faker->name;
+
+            for ($j = \random_int(0, 15); $j--;) {
+                $message = new Message();
+                $message->content = $faker->text(200);
+                $message->author = $user;
+
+                if (\random_int(0, 1)) {
+                    $user->likedMessages->add($message);
+                }
+            }
+
+            yield $user;
         }
-
-        $this->em->flush();
-
-        \assert($this->count > 0);
-        \assert($this->entity !== null);
-
-        $this->em->clear();
     }
 
     /**
@@ -97,6 +123,7 @@ abstract class QueryTestCase extends DatabaseTestCase
 
     /**
      * @return void
+     * @throws \Doctrine\ORM\NonUniqueResultException
      */
     public function testExternalScope(): void
     {
@@ -105,11 +132,12 @@ abstract class QueryTestCase extends DatabaseTestCase
             ->lessThan10()
             ->get();
 
-        $this->assertCount(\min(9, $this->count), $result);
+        $this->assertCount(\min(9, $this->getEntitiesCount()), $result);
     }
 
     /**
      * @return void
+     * @throws \Doctrine\ORM\NonUniqueResultException
      */
     public function testExternalStaticScope(): void
     {
@@ -118,18 +146,19 @@ abstract class QueryTestCase extends DatabaseTestCase
             ->lessThan5()
             ->get();
 
-        $this->assertCount(\min(4, $this->count), $result);
+        $this->assertCount(\min(4, $this->getEntitiesCount()), $result);
 
         $result = Query::new($this->getRepository())
             ->scope(ExampleScope::class)
             ->lessThan5()
             ->get();
 
-        $this->assertCount(\min(4, $this->count), $result);
+        $this->assertCount(\min(4, $this->getEntitiesCount()), $result);
     }
 
     /**
      * @return void
+     * @throws \Doctrine\ORM\NonUniqueResultException
      */
     public function testGroupBy(): void
     {
@@ -137,7 +166,7 @@ abstract class QueryTestCase extends DatabaseTestCase
             ->groupBy('id')
             ->get();
 
-        $this->assertCount($this->count, $result);
+        $this->assertCount($this->getEntitiesCount(), $result);
     }
 
     /**
@@ -167,6 +196,7 @@ abstract class QueryTestCase extends DatabaseTestCase
 
     /**
      * @return void
+     * @throws \Doctrine\ORM\NonUniqueResultException
      */
     public function testOrderBy(): void
     {
@@ -174,7 +204,7 @@ abstract class QueryTestCase extends DatabaseTestCase
             ->desc('id')
             ->get();
 
-        $this->assertEquals($this->count, $result[0]->id);
+        $this->assertEquals($this->getEntitiesCount(), $result[0]->id);
     }
 
     /**
@@ -196,14 +226,15 @@ abstract class QueryTestCase extends DatabaseTestCase
     /**
      * @throws \LogicException
      * @throws \PHPUnit\Framework\Exception
+     * @throws \Doctrine\ORM\NonUniqueResultException
      */
     public function testFullSelection(): void
     {
-        $this->assertCount($this->count, $this->getRepository()->query->get());
-        $this->assertCount($this->count, $this->getRepository()->query->collect());
+        $this->assertCount($this->getEntitiesCount(), $this->getRepository()->query->get());
+        $this->assertCount($this->getEntitiesCount(), $this->getRepository()->query->collect());
 
         foreach ($this->getRepository()->query->get() as $i) {
-            $this->assertInstanceOf($this->entity, $i);
+            $this->assertInstanceOf($this->getEntityClass(), $i);
         }
 
         foreach ($this->getRepository()->query->get('id') as $i) {
@@ -220,6 +251,7 @@ abstract class QueryTestCase extends DatabaseTestCase
      * @throws \LogicException
      * @throws \PHPUnit\Framework\Exception
      * @throws \RuntimeException
+     * @throws \Doctrine\ORM\NonUniqueResultException
      */
     public function testCountSelection(): void
     {
@@ -229,39 +261,43 @@ abstract class QueryTestCase extends DatabaseTestCase
             ->scalar('c', 'int');
 
         $this->assertInternalType('int', $result);
-        $this->assertEquals($this->count, $result);
+        $this->assertEquals($this->getEntitiesCount(), $result);
 
         // Using helper
         $result = $this->getRepository()->query->count('id');
 
         $this->assertInternalType('int', $result);
-        $this->assertEquals($this->count, $result);
+        $this->assertEquals($this->getEntitiesCount(), $result);
     }
 
     /**
      * @throws \LogicException
      * @throws \PHPUnit\Framework\Exception
+     * @throws \Doctrine\ORM\NonUniqueResultException
      */
     public function testSumSelection(): void
     {
+        $count = $this->getEntitiesCount();
+
         // Native
         $result = $this->getRepository()->query
             ->select('sum(id) as s')
             ->scalar('s', 'int');
 
         $this->assertInternalType('int', $result);
-        $this->assertEquals(($this->count * ($this->count + 1)) / 2, $result);
+        $this->assertEquals(($count * ($count + 1)) / 2, $result);
 
         // Using helper
         $result = $this->getRepository()->query->sum('id');
 
         $this->assertInternalType('int', $result);
-        $this->assertEquals(($this->count * ($this->count + 1)) / 2, $result);
+        $this->assertEquals(($count * ($count + 1)) / 2, $result);
     }
 
     /**
      * @throws \LogicException
      * @throws \PHPUnit\Framework\Exception
+     * @throws \Doctrine\ORM\NonUniqueResultException
      */
     public function testAvgSelection(): void
     {
@@ -271,18 +307,19 @@ abstract class QueryTestCase extends DatabaseTestCase
             ->scalar('s', 'int');
 
         $this->assertInternalType('int', $result);
-        $this->assertEquals(ceil($this->count / 2), $result);
+        $this->assertEquals(ceil($this->getEntitiesCount() / 2), $result);
 
         // Using helper
         $result = $this->getRepository()->query->avg('id');
 
         $this->assertInternalType('int', $result);
-        $this->assertEquals(ceil($this->count / 2), $result);
+        $this->assertEquals(ceil($this->getEntitiesCount() / 2), $result);
     }
 
     /**
      * @throws \LogicException
      * @throws \PHPUnit\Framework\Exception
+     * @throws \Doctrine\ORM\NonUniqueResultException
      */
     public function testMaxSelection(): void
     {
@@ -292,13 +329,13 @@ abstract class QueryTestCase extends DatabaseTestCase
             ->scalar('s', 'int');
 
         $this->assertInternalType('int', $result);
-        $this->assertEquals($this->count, $result);
+        $this->assertEquals($this->getEntitiesCount(), $result);
 
         // Using helper
         $result = $this->getRepository()->query->max('id');
 
         $this->assertInternalType('int', $result);
-        $this->assertEquals($this->count, $result);
+        $this->assertEquals($this->getEntitiesCount(), $result);
     }
 
     /**
@@ -325,6 +362,7 @@ abstract class QueryTestCase extends DatabaseTestCase
     /**
      * @throws \LogicException
      * @throws \PHPUnit\Framework\Exception
+     * @throws \Doctrine\ORM\NonUniqueResultException
      */
     public function testSimpleWhereSelection(): void
     {
@@ -333,6 +371,6 @@ abstract class QueryTestCase extends DatabaseTestCase
             ->where('id', '<=', 20)
             ->get();
 
-        $this->assertCount(\max(\min($this->count - 10, 10), 0), $result);
+        $this->assertCount(\max(\min($this->getEntitiesCount() - 10, 10), 0), $result);
     }
 }

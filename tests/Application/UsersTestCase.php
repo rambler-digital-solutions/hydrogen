@@ -11,7 +11,6 @@ namespace RDS\Hydrogen\Tests\Application;
 
 use Doctrine\ORM\EntityRepository;
 use Faker\Generator;
-use RDS\Hydrogen\Query;
 use RDS\Hydrogen\Tests\Application\Mock\Entity\Message;
 use RDS\Hydrogen\Tests\Application\Mock\Entity\User;
 use RDS\Hydrogen\Tests\Application\Mock\Repository\UsersRepository;
@@ -48,6 +47,14 @@ class UsersTestCase extends QueryTestCase
         $meta = $this->em->getClassMetadata(User::class);
 
         return new UsersRepository($this->em, $meta);
+    }
+
+    /**
+     * @return string
+     */
+    protected function getEntityClass(): string
+    {
+        return User::class;
     }
 
     /**

@@ -10,8 +10,6 @@ declare(strict_types=1);
 namespace RDS\Hydrogen\Tests\Application;
 
 use Doctrine\ORM\EntityRepository;
-use Faker\Generator;
-use RDS\Hydrogen\Query;
 use RDS\Hydrogen\Tests\Application\Mock\Entity\Message;
 use RDS\Hydrogen\Tests\Application\Mock\Entity\User;
 use RDS\Hydrogen\Tests\Application\Mock\Repository\MessagesRepository;
@@ -22,6 +20,14 @@ use RDS\Hydrogen\Tests\Application\Mock\Repository\MessagesRepository;
 class MessagesTestCase extends QueryTestCase
 {
     /**
+     * @return string
+     */
+    protected function getEntityClass(): string
+    {
+        return Message::class;
+    }
+
+    /**
      * @throws \PHPUnit\Framework\Exception
      */
     public function testSimpleRelations(): void
@@ -29,36 +35,20 @@ class MessagesTestCase extends QueryTestCase
         $queries = $this->log(function () {
             /** @var Message[] $messages */
             $messages = $this->getRepository()->query
-                ->leftJoin('author')
+                ->join('author', 'likedBy')
                 ->get();
 
             foreach ($messages as $message) {
                 $this->assertInternalType('string', $message->author->name);
+
+                foreach ($message->likedBy as $user) {
+                    $this->assertInstanceOf(User::class, $user);
+                }
             }
+
         });
 
-        $this->assertCount(1, $queries);
-    }
-
-    /**
-     * @param Generator $faker
-     * @return \Generator|User[]
-     * @throws \Exception
-     */
-    protected function getMocks(Generator $faker): \Generator
-    {
-        for ($i = \random_int(6, 20); $i--;) {
-            $user = new User();
-            $user->name = $faker->name;
-
-            for ($j = \random_int(1, 15); $j--;) {
-                $message = new Message();
-                $message->content = $faker->text(200);
-                $message->author = $user;
-
-                yield $message;
-            }
-        }
+        $this->assertCount(2, $queries, \print_r($queries, true));
     }
 
     /**

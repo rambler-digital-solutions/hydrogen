@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace RDS\Hydrogen\Processor\DatabaseProcessor;
 
+use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\QueryBuilder;
 use RDS\Hydrogen\Criteria\Common\Field;
 use RDS\Hydrogen\Criteria\CriterionInterface;
@@ -54,6 +55,7 @@ class JoinBuilder extends WhereBuilder
         [$alias, $relation] = [$join->getQueryAlias(), []];
 
         foreach ($join->getRelations($this->processor) as $isLast => $relation) {
+
             // Is the relation already loaded in current query execution
             $exists = $this->hasAlias($relation);
 
