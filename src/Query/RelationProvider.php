@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace RDS\Hydrogen\Query;
 
 use RDS\Hydrogen\Criteria\Join;
-use RDS\Hydrogen\Criteria\Relation;
 use RDS\Hydrogen\Query;
 
 /**
@@ -20,17 +19,18 @@ use RDS\Hydrogen\Query;
 trait RelationProvider
 {
     /**
+     * @internal This method is currently unavailable. Use the "join" instead
+     *
      * @param string|array ...$relations
      * @return Query|$this|self
      */
     public function with(...$relations): self
     {
-        // TODO Add temporary fallback to left join
         return $this->leftJoin(...$relations);
 
-        /*return $this->addRelation(function(string $field, \Closure $inner = null) {
-            return new Relation($this, $field, $inner);
-        }, ...$relations);*/
+        // return $this->addRelation(function(string $field, \Closure $inner = null) {
+        //     return new Relation($this, $field, $inner);
+        // }, ...$relations);
     }
 
     /**
