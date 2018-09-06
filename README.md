@@ -11,8 +11,6 @@
     <a href="https://raw.githubusercontent.com/rambler-digital-solutions/hydrogen/master/LICENSE.md"><img src="https://poser.pugx.org/rds/hydrogen/license" alt="License MIT"></a>
 </p>
 
-> **The documentation is not finished at the moment.**
-
 - [Introduction](#introduction)
 - [Installation](#installation)
     - [Server Requirements](#server-requirements)
@@ -37,9 +35,8 @@
 - [Relations](#relations)
     - [Joins](#joins)
     - [Joins Subqueries](#joins-subqueries)
-    - [External Subqueries](#external-subqueries)
     - [Nested Relationships](#nested-relationships)
-    - [Relations Subqueries](#relations-subqueries)
+- [Query Scopes](#query-scopes)
 - [Collections](#collections)
     - [Higher Order Messaging](#higher-order-messaging)
     - [Destructuring](#destructuring)
@@ -845,71 +842,7 @@ $customers = $customerRepository->query
 
 > **Note**: Operations using `join` affect the underlying query.
 
-### External Subqueries
-
-Alternatively, you can use the `with` method, which instead of 
-join will make an additional request.
-
-```php
-<?php
-
-class CustomerRepository extends EntityRepository
-{
-    use Hydrogen;
-
-    public function findAllWithCarts(): iterable
-    {
-        return $this->query->with('cart')->get();
-    }
-}
-```
-
-As a result, we obtain the following result:
-
-```php
-$repository->findAll();
-
-// 1: SELECT с, c.customer_id FROM Customer c
-// 2: SELECT c FROM Cart c WHERE c.id = ?
-// 3: SELECT c FROM Cart c WHERE c.id = ?
-// ...: SELECT c FROM Cart c WHERE c.id = ?
-```
-
-```php
-$repository->findAllWithCarts();
-
-// 1: SELECT с, c.customer_id FROM Customer c
-// 2: SELECT c FROM Cart c WHERE c.id IN (...)
-```
-
-Sometimes you need to carefully select only those elements of the 
-relationships that are required or sort them in the desired order. 
-In this case, you will be assisted by internal subqueries for relationships, 
-which are indicated in the form of an additional callback:
-
-```php
-$users = $repository->query
-    ->with(['messages' => function (Query $query): void {
-        $query->notNull('deletedAt')->asc('createdAt');
-    }])
-    ->get();
-```
-
-> **Note**: Operations using `with` affect the relations.
-
 ### Nested Relationships
-
-The sampling method described above affects only the direct relationship 
-indicated in `->with()` method. In order to "greedly" loading of the entire
-chain of relationships you may use the point (`.`) operator:
-
-```php
-$customers = $customerRepository->query
-     ->with('cart', ['cart.goods' => function (Query $query): void {
-        $query->whereNull('deletedAt')->orderBy('createdAt');
-     }])
-     ->get();
-```
 
 So, if we need all the customers that have been ordered, 
 for example, movie tickets, we need to make a simple request:
@@ -923,6 +856,40 @@ $customers = $customerRepository->query
      ->get();
 ```
 
+## Query Scopes
+
+Sometimes it takes a long time to build a whole query, and some parts of 
+it already repeat existing ones. In this case, we can use the mechanism 
+of scopes, which allows you to add a set of methods to the query, 
+which in turn must return parts of the query we need:
+
+```php
+<?php
+
+class UsersRepository extends EntityRepository
+{
+    use Hydrogen;
+    
+    public function banned(bool $positive = true): Query
+    {
+        return $positive
+            ? $this->query->whereNotNull('bannedAt')
+            : $this->query->whereNull('bannedAt');
+    }
+    
+    public function findBanned(): iterable
+    {
+        // We supplement the query, call the existing method "banned"
+        return $this->query->banned->get();
+    }
+    
+    public function findActive(): iterable
+    {
+        // We supplement the query, call the existing method "banned" with additional argument "false"
+        return $this->query->banned(false)->get();
+    }
+} 
+```
 
 ## Collections
 
