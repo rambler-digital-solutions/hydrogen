@@ -194,16 +194,20 @@ class Query implements \IteratorAggregate
     /**
      * @param string $method
      * @param array $parameters
-     * @return null|Query
+     * @return null|Query|mixed
      */
-    private function callScopes(string $method, array $parameters = []): ?Query
+    private function callScopes(string $method, array $parameters = [])
     {
         foreach ($this->scopes as $scope) {
             if (\method_exists($scope, $method)) {
                 /** @var Query $query */
                 $query = \is_object($scope) ? $scope->$method(...$parameters) : $scope::$method(...$parameters);
 
-                return $this->merge($query->clone());
+                if ($query instanceof self) {
+                    return $this->merge($query->clone());
+                }
+
+                return $query;
             }
         }
 
