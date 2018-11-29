@@ -182,7 +182,7 @@ class Query implements \IteratorAggregate
      * @param array $parameters
      * @return mixed|$this|Query
      */
-    public function __call(string $method, array $parameters = [])
+    public function __call(string $method, array $parameters)
     {
         if ($result = $this->callScopes($method, $parameters)) {
             return $result;
