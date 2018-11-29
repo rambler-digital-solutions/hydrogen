@@ -31,4 +31,20 @@ class ExampleScope
     {
         return Query::new()->where('id', '<', 5);
     }
+
+    /**
+     * @return int
+     */
+    public function scalarScope(): int
+    {
+        return 42;
+    }
+
+    /**
+     * @return int
+     */
+    public static function scalarStaticScope(): int
+    {
+        return 42;
+    }
 }

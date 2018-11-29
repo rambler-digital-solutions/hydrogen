@@ -32,7 +32,7 @@ abstract class QueryTestCase extends DatabaseTestCase
         $builder->select('COUNT(e.id)');
         $builder->setMaxResults(1);
 
-        return (int)$builder->getQuery()->getSingleScalarResult();
+        return (int) $builder->getQuery()->getSingleScalarResult();
     }
 
     /**
@@ -54,7 +54,7 @@ abstract class QueryTestCase extends DatabaseTestCase
     {
         parent::setUp();
 
-        $this->log(function() {
+        $this->log(function () {
             foreach ($this->getMocks($this->faker()) as $entity) {
                 $this->em->persist($entity);
             }
@@ -97,7 +97,10 @@ abstract class QueryTestCase extends DatabaseTestCase
     {
         $this->expectException(\LogicException::class);
 
-        (new class { use Hydrogen; })->query();
+        (new class
+        {
+            use Hydrogen;
+        })->query();
     }
 
     /**
@@ -108,7 +111,10 @@ abstract class QueryTestCase extends DatabaseTestCase
     {
         $this->expectException(\LogicException::class);
 
-        (new class { use Hydrogen; })->query;
+        (new class
+        {
+            use Hydrogen;
+        })->query;
     }
 
     /**
@@ -154,6 +160,24 @@ abstract class QueryTestCase extends DatabaseTestCase
             ->get();
 
         $this->assertCount(\min(4, $this->getEntitiesCount()), $result);
+    }
+
+    /**
+     * @return void
+     */
+    public function testQueryProvidesNonQueryScopeMethod(): void
+    {
+        $result = Query::new()
+            ->scope(new ExampleScope())
+            ->scalarScope();
+
+        $this->assertEquals(42, $result);
+
+        $result = Query::new()
+            ->scope(ExampleScope::class)
+            ->scalarStaticScope();
+
+        $this->assertEquals(42, $result);
     }
 
     /**
@@ -214,7 +238,7 @@ abstract class QueryTestCase extends DatabaseTestCase
     {
         $result = Query::new($this->getRepository())
             ->where('id', 1)
-            ->orWhere(function(Query $query) {
+            ->orWhere(function (Query $query) {
                 $query->where('id', 3)
                     ->orWhere('id', 5);
             })
