@@ -12,8 +12,8 @@ namespace RDS\Hydrogen;
 use Doctrine\ORM\Configuration;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Query\AST\Functions\FunctionNode;
-use RDS\Hydrogen\Fn\FieldFunction;
-use RDS\Hydrogen\Fn\RawFunction;
+use RDS\Hydrogen\Fun\FieldFunction;
+use RDS\Hydrogen\Fun\RawFunction;
 
 /**
  * Class Bootstrap

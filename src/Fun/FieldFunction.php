@@ -7,7 +7,7 @@
  */
 declare(strict_types=1);
 
-namespace RDS\Hydrogen\Fn;
+namespace RDS\Hydrogen\Fun;
 
 use Doctrine\ORM\Query\AST\Functions\FunctionNode;
 use Doctrine\ORM\Query\AST\Literal;
